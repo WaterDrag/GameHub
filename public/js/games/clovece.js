@@ -60,7 +60,8 @@ export default {
           <button class="cl-hod" id="clHod" type="button">HODIT</button>
         </div>
         <div class="cl-figurky" id="clFigurky"></div>
-      </div>`;
+      </div>
+      <div class="cl-let" id="clLet"><div class="cl-kmrizka"></div></div>`;
 
     this.root.querySelector('#clHod').onclick = () => this.hod();
 
@@ -185,6 +186,7 @@ export default {
 
   update(view) {
     if (view.mapa !== this.view?.mapa || view.figurek !== this.view?.figurek) {
+      this.zrusLet();
       this.view = view;
       this.postavDesku(view);
     }
@@ -192,21 +194,116 @@ export default {
     this.render(view);
   },
 
-  event(kind, data) {
-    if (kind === 'kostka') this.hodKostkou(data.hodnota);
+  // Hub posílá CELOU zprávu jedním parametrem (`{kind, ...data}`), ne
+  // dvojici (kind, data). Žádná jiná hra události nepoužívá, takže na to
+  // tady nebylo podle čeho přijít – animace se prostě tiše nespouštěla.
+  event(m) {
+    if (m?.kind !== 'kostka') return;
+    // Kostka na stole ukazuje POSLEDNÍ hod, ne `view.kostka`. Ta je jen
+    // po dobu výběru figurky – když hod nic neumožní, server ji hned
+    // nuluje a hráč by se nikdy nedozvěděl, co vlastně hodil.
+    this.posledniHod = m.hodnota;
+    this.hodKostkou(m.hodnota, m.seat);
   },
 
-  hodKostkou(hodnota) {
-    const box = this.root?.querySelector('#clKostka');
-    if (!box) return;
-    box.classList.remove('hazi');
-    void box.offsetWidth;          // restart animace
-    box.classList.add('hazi');
+  // ── Letící kostka ──────────────────────────────────────────
+  //  Vyletí od toho, kdo hází (u sebe od tlačítka, u ostatních od jejich
+  //  jmenovky), doskáče doprostřed desky a dotočí se na hozenou hodnotu.
+  //  Během letu ukazuje náhodné stěny, dopadne na tu skutečnou.
+  //
+  //  Kreslí se přes Web Animations API, ne přes přepínání CSS tříd –
+  //  ta se u překreslovaného panelu restartují a odpočet v závodech kvůli
+  //  tomu blikal. Tenhle prvek navíc žije MIMO panel, takže ho překreslení
+  //  stavu nemůže přerušit.
+  hodKostkou(hodnota, seat) {
+    const letec = this.root?.querySelector('#clLet');
+    const svg = this.root?.querySelector('#clSvg');
+    if (!letec || !svg) return;
+
+    this.zrusLet();
+
+    // Kdo nechce animace, dostane jen výsledek. Totéž na skryté záložce:
+    // tam neběží requestAnimationFrame, takže by kostka visela ve vzduchu.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      || document.visibilityState === 'hidden') {
+      this.kresliKostku(hodnota);
+      return;
+    }
+
+    const zdroj = (seat === this.view?.mySeat)
+      ? this.root.querySelector('#clHod')
+      : this.root.querySelectorAll('.cl-hrac')[seat];
+    const a = (zdroj || this.root.querySelector('#clHod')).getBoundingClientRect();
+    const b = svg.getBoundingClientRect();
+    const r = this.root.getBoundingClientRect();
+    if (!a.width || !b.width) { this.kresliKostku(hodnota); return; }
+
+    const V = 58;
+    const x0 = a.left + a.width / 2 - r.left - V / 2;
+    const y0 = a.top + a.height / 2 - r.top - V / 2;
+    const x1 = b.left + b.width / 2 - r.left - V / 2;
+    const y1 = b.top + b.height / 2 - r.top - V / 2;
+
+    // Směr otáčení se liší podle sedadla, ať dva hody po sobě nevypadají stejně.
+    const otoc = (seat % 2 ? -1 : 1) * (430 + ((hodnota * 53) % 170));
+
+    letec.style.display = 'block';
+    this._leti = true;
+    this._anim = letec.animate([
+      { transform: `translate(${x0}px,${y0}px) rotate(0deg) scale(.35)`, opacity: 0, offset: 0 },
+      { opacity: 1, offset: .14 },
+      { transform: `translate(${x1}px,${y1 - 26}px) rotate(${otoc * .8}deg) scale(1.2)`, offset: .58 },
+      { transform: `translate(${x1}px,${y1 + 8}px) rotate(${otoc}deg) scale(.92)`, offset: .74 },
+      { transform: `translate(${x1}px,${y1 - 7}px) rotate(${otoc}deg) scale(1.06)`, offset: .87 },
+      { transform: `translate(${x1}px,${y1}px) rotate(${otoc}deg) scale(1)`, opacity: 1, offset: 1 },
+    ], { duration: 620, easing: 'cubic-bezier(.25,.9,.35,1)', fill: 'forwards' });
+
+    // Během letu se stěny přebíjejí – výsledek se ukáže až po dopadu.
+    const mrizka = letec.querySelector('.cl-kmrizka');
+    let i = 0;
+    this._tocim = setInterval(() => this.puntiky(mrizka, 1 + ((i++ * 5 + 2) % 6)), 65);
+
+    this._anim.onfinish = () => this.dopad(hodnota);
+    // Pojistka. Když prohlížeč animaci nedokončí – schovaná záložka,
+    // uspaný stroj – `onfinish` nepřijde nikdy, kostka by se přetáčela
+    // donekonečna a hodnota by se nikdy neukázala. Časovač běží i tam,
+    // kde neběží animace, takže dopad zařídí on.
+    this._pojistka = setTimeout(() => this.dopad(hodnota), 900);
+  },
+
+  // Dopad se může spustit dvakrát (animace i pojistka), tak ať to nevadí.
+  dopad(hodnota) {
+    if (!this._leti) return;
+    this._leti = false;
+    if (this._pojistka) { clearTimeout(this._pojistka); this._pojistka = null; }
+    if (this._tocim) { clearInterval(this._tocim); this._tocim = null; }
+
+    const letec = this.root?.querySelector('#clLet');
+    if (!letec) return;
+    this.puntiky(letec.querySelector('.cl-kmrizka'), hodnota);
     this.kresliKostku(hodnota);
+
+    // Chvíli podržet, ať je hodnota čitelná, a zmizet.
+    this._mizi = setTimeout(() => {
+      const f = letec.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+      const schovej = () => { letec.style.display = 'none'; };
+      f.onfinish = schovej;
+      this._schovej = setTimeout(schovej, 400);   // zase pojistka
+    }, 380);
   },
 
-  kresliKostku(n) {
-    const mrizka = this.root.querySelector('.cl-kmrizka');
+  zrusLet() {
+    if (this._tocim) { clearInterval(this._tocim); this._tocim = null; }
+    if (this._mizi) { clearTimeout(this._mizi); this._mizi = null; }
+    if (this._pojistka) { clearTimeout(this._pojistka); this._pojistka = null; }
+    if (this._schovej) { clearTimeout(this._schovej); this._schovej = null; }
+    if (this._anim) { this._anim.onfinish = null; this._anim.cancel(); this._anim = null; }
+    this._leti = false;
+    const letec = this.root?.querySelector('#clLet');
+    if (letec) { letec.getAnimations().forEach(x => x.cancel()); letec.style.display = 'none'; }
+  },
+
+  puntiky(mrizka, n) {
     if (!mrizka) return;
     mrizka.innerHTML = '';
     if (!n) return;
@@ -218,6 +315,10 @@ export default {
         mrizka.append(d);
       }
     }
+  },
+
+  kresliKostku(n) {
+    this.puntiky(this.root?.querySelector('#clKostka .cl-kmrizka'), n);
   },
 
   // ── Vykreslení ─────────────────────────────────────────────
@@ -313,7 +414,9 @@ export default {
 
     btn.disabled = !v.myTurn || v.hozeno || v.vitez !== null;
     btn.textContent = v.hozeno ? '…' : 'HODIT';
-    this.kresliKostku(v.kostka);
+    // Dokud kostka letí, panel výsledek neprozradí – jinak by tam číslo
+    // svítilo dřív, než kostka dopadne.
+    if (!this._leti) this.kresliKostku(this.posledniHod ?? v.kostka);
 
     // Čísla figurek dole. Když je možnost jedna, server ji stejně
     // za vteřinu zahraje sám, tak se nic nenabízí.
@@ -346,6 +449,7 @@ export default {
   resize() {},
 
   unmount() {
+    this.zrusLet();
     const stage = document.getElementById('stage');
     if (stage) stage.style.display = this.stageDisplay ?? '';
     this.root?.remove();
