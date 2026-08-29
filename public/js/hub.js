@@ -247,7 +247,6 @@ const GAME_ACCENT = {
 const PLANNED = [
   { id: 'arena',  title: 'Arena',              emoji: '🔫', desc: 'Top-down deathmatch v reálném čase.', realtime: true,  minPlayers: 2, maxPlayers: 8 },
   { id: 'racing', title: 'Závody',             emoji: '🏁', desc: 'Rychlá kola shora, boti drží stopu.',  realtime: true,  minPlayers: 2, maxPlayers: 6 },
-  { id: 'ludo',   title: 'Člověče, nezlob se', emoji: '🎲', desc: 'Čtyři hráči, jedna kostka, hodně křiku.', realtime: false, minPlayers: 2, maxPlayers: 4 },
 ];
 
 function accentFor(id) {
@@ -488,7 +487,7 @@ function renderRoom() {
   ob.className = 'opt-panel';
   ob.classList.toggle('hidden', !defs.length);
   if (defs.length) {
-    ob.append(el('div', { class: 'opt-head', text: r.optionsTitle || 'Nastavení hry' }));
+    ob.append(el('div', { class: 'opt-head', text: r.optionsTitle || 'Události ve hře' }));
     for (const o of defs) {
       ob.append(optionRow(o, r.options, {
         zamek: r.optionZamky?.[o.key] || null,

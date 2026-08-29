@@ -50,7 +50,8 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Závody** – okruh shora, predikce řízení, kontrolní body, boti | ✅ |
 | **Stavěná trať** – hráči ji skládají z dílků a sázejí do ní pasti | ✅ |
 | **Šachy** – celá pravidla ověřená perftem, bot s alfa-beta | ✅ |
-| Člověče, nezlob se | ⏳ dál |
+| **Člověče, nezlob se** – pravidla z předlohy, deska pro 4 i pro 8 hráčů | ✅ |
+| Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
 
@@ -604,6 +605,87 @@ zůstala deska prázdná. Dvanáct souborů má dohromady ~15 kB.
 Čtyři vzhledy desky (zelená, dřevo, modrá, noc) mění jen tři CSS proměnné
 na `#chDeska` a drží se v `localStorage`. Na server nejdou vůbec: je to věc
 hráče, ne partie.
+
+## Člověče, nezlob se
+
+Pravidla jsou převzatá z předlohy doslova: ven jen za šestku na vlastní
+startovní pole, do cíle přesným počtem (přešlap neplatí), na vlastní figurku
+se nesmí, cizí se vyhodí domů, šestka = házíš znovu, a tři pokusy dostaneš
+jen tehdy, když nemáš čím táhnout.
+
+**Kostkou hází server.** V předloze ji losoval prohlížeč přes `Math.random()`
+a výsledek zapisoval do databáze — kdo si otevřel konzoli, mohl si hodit
+šestku pokaždé. Že je serverová kostka poctivá, ukázalo měření: 16,3 %
+šestek ze 42 tisíc hodů proti očekávaným 16,67 %.
+
+### Deska je parametr, ne konstanta
+
+Klasika je kříž 11×11 přesně podle předlohy (40 polí, vstupy na 0/10/20/30).
+Velká deska má osm ramen a 80 polí. Kříž se na osm ramen natáhnout nedá, takže
+má druhou podobu — kruh. Pravidla o tom **nevědí vůbec nic**: pracují jen
+s číslem kroku (`-1` domeček, `0..okruh-1` dráha, dál cíl), souřadnice si
+bere až kreslení ze sdílené `geometrie()`. Proto osmičlenná deska není druhá
+hra, jen jiná čísla — stejný trik jako trať u závodů.
+
+### Kolik figurek: měřeno, ne odhadnuto
+
+Počet figurek je volba před hrou a je to **jediná věc, která rozhoduje
+o délce partie**. Velikost desky je proti tomu skoro jedno:
+
+| | hodů na partii | hráč má na výběr | hody naprázdno |
+|---|---|---|---|
+| klasika, 4 hráči, 4 figurky | 483 | 35 % | 25 % |
+| velká, 8 hráčů, **2 figurky** | 887 | 33 % | 23 % |
+| velká, 8 hráčů, 3 figurky | 1 682 | 27 % | 34 % |
+| velká, 8 hráčů, 4 figurky | 3 465 | – | – |
+
+Osm hráčů se čtyřmi figurkami je skoro dvě hodiny. Tři figurky jsou horší
+ve všem — delší **a** míň rozhodování. Dvě drží poměr rozhodnutí prakticky
+stejný jako klasika, proto je velká deska předvyplněná na dvě.
+
+Hostitel si ale počet nastaví sám a u každé možnosti vidí odhad délky.
+Odhad není od oka: je to tabulka mediánů ze 40 simulovaných partií na buňku
+(`ODHAD` v `shared/games/clovece/const.js`). Test ověřuje, že sedí s realitou —
+naposledy slíbeno 440 hodů, naměřeno 455.
+
+### Jediná možnost se zahraje sama
+
+Ve dvou třetinách hodů hráč stejně nemá na výběr (25 % nemá tah vůbec,
+41 % má právě jeden). Klikat v takové chvíli na figurku je jen zdržení, takže
+se po vteřině zahraje sama. Dělá to **server**, ne klient — kdyby si to
+dokresloval každý prohlížeč po svém, stavy by se rozešly.
+
+Když je možností víc, svítí figurky na desce a dole přibude řádek s jejich
+čísly, aby se dalo klikat i mimo desku.
+
+### Boti
+
+Heuristika: vyhodit soupeře (tím cennější, čím dál byl), dojít do cíle,
+dostat figurku z domečku, jít dopředu. `hard` navíc zkusí tah nanečisto
+a spočítá, kolik soupeřů na to pole dosáhne jedním hodem.
+
+| souboj | výhry | významnost |
+|---|---|---|
+| hard vs easy | 75,0 % | +22,3 σ |
+| normal vs easy | 72,0 % | +19,7 σ |
+| hard vs normal | 52,6 % | +2,4 σ |
+
+> Napoprvé vycházely všechny obtížnosti na 50 % a vypadalo to na chybu
+> v botovi. Chyba byla v měření: `createState` sedadla zamíchá, ale test
+> přiřazoval vítěze podle původního pořadí hráčů, takže si výsledky sám
+> randomizoval. **Stejná past jako u závodů — než začnu ladit kód, ověřím
+> nejdřív harness.**
+
+### Volby, které se mění až v čekárně
+
+Deska se nedá vybrat při zakládání místnosti: tehdy ještě není známo, kolik
+hráčů dorazí. Volby se proto nastavují v čekárně a hra si k nim říká sama —
+`normalizeOptions(options, počet)` vrátí opravené hodnoty, zámky a popisky.
+Hub o žádné konkrétní volbě neví, jen je vykreslí.
+
+Nad čtyři hráče se klasická deska zamkne a přepne na velkou. Zámek drží
+i server: `setOption` zamčenou volbu odmítne, takže ji nejde přepsat z konzole,
+a `createState` ji pro jistotu srovná ještě jednou.
 
 ## Spuštění
 

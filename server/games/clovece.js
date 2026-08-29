@@ -285,6 +285,17 @@ export default {
     if (s.vitez !== null) return;
     const now = Date.now();
 
+    // Kdo je bot, se pozná až z `ctx`, které `createState` nedostává –
+    // a taky se to změní ve chvíli, kdy hráče převezme bot za nečinnost.
+    // Proto se plán bota dorovnává tady, ne jen v `prepocti`. Bez toho
+    // hra po rozdání stála, dokud nevypršel šedesátivteřinový limit.
+    if (!state.autoAt && !state.botAt) {
+      const kdo = ctx?.players?.find(p => p.uid === state.seats[s.naTahu]);
+      if (kdo?.bot || kdo?.botControlled) {
+        state.botAt = now + (s.hozeno ? BOT_TAH_MS : BOT_HOD_MS);
+      }
+    }
+
     // Jediná možnost – zahraje se sama, ať už za člověka nebo za bota.
     if (state.autoAt && now >= state.autoAt) {
       const t = tahy(s);

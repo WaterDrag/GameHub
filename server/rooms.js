@@ -28,9 +28,18 @@ export class RoomManager {
   create(user, { gameId, visibility = 'public', maxPlayers, options }) {
     const game = GAMES[gameId];
     if (!game) return { error: 'Neznámá hra.' };
-    // Přijmi jen klíče, které hra sama nabízí – nic jiného se dovnitř nedostane.
+    // Přijmi jen klíče, které hra sama nabízí – nic jiného se dovnitř
+    // nedostane. Zaškrtávátko je boolean, výběr musí být jedna
+    // z nabízených hodnot; cokoliv jiného spadne na výchozí.
     const clean = {};
-    for (const o of game.options || []) clean[o.key] = !!options?.[o.key];
+    for (const o of game.options || []) {
+      const v = options?.[o.key];
+      if (o.typ === 'volba') {
+        clean[o.key] = o.volby?.some(x => x.v === v) ? v : o.def;
+      } else {
+        clean[o.key] = !!v;
+      }
+    }
     const room = new Room({
       code: this.newCode(), game, hostUid: user.uid,
       visibility, maxPlayers, options: clean, manager: this,

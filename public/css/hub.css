@@ -401,7 +401,7 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .opt-choice{
   flex:1 1 auto; min-width:96px; display:flex; flex-direction:column; gap:2px; align-items:flex-start;
   padding:7px 10px; border-radius:10px; cursor:pointer; text-align:left;
-  background:var(--surface); border:1px solid var(--brd); color:var(--tx1);
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx);
   font:inherit; transition:border-color .16s, background .16s;
 }
 .opt-choice:not(:disabled):hover{border-color:var(--brd2)}
@@ -1252,4 +1252,115 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   .count-num{font-size:5rem}
   #toasts{left:14px; right:14px; bottom:14px}
   .toast{max-width:none}
+}
+
+
+/* ── Člověče, nezlob se ─────────────────────────────────────
+   Nahoře hráči, uprostřed deska, dole ovládání. Deska je SVG s
+   viewBoxem, takže se sama vejde na mobil i na monitor a kód se
+   nemusí starat o to, jestli je ramen čtyři nebo osm. */
+.cl{
+  position:absolute; inset:0; z-index:12; display:flex; flex-direction:column;
+  gap:10px; padding:12px; pointer-events:auto; overflow:hidden;
+}
+
+.cl-hraci{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; flex-shrink:0}
+.cl-hrac{
+  --c:#888;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:5px 9px; border-radius:10px; min-width:74px; max-width:130px;
+  background:var(--bg2); border:1px solid var(--brd); opacity:.5; transition:opacity .2s, border-color .2s;
+}
+.cl-hrac.on{opacity:1; border-color:var(--c); background:color-mix(in srgb,var(--c) 12%,var(--bg2))}
+.cl-hrac.ja .cl-jmeno{text-decoration:underline; text-underline-offset:3px}
+.cl-pruh{width:26px; height:3px; border-radius:2px; background:var(--c)}
+.cl-jmeno{
+  font-size:.7rem; font-weight:700; letter-spacing:.03em; max-width:112px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cl-tecky{display:flex; gap:3px}
+.cl-tecky i{
+  width:7px; height:7px; border-radius:50%; background:var(--c);
+  opacity:.3; border:1px solid rgba(255,255,255,.25);
+}
+.cl-tecky i.doma{opacity:1; border-color:#fff}
+
+.cl-deskawrap{flex:1; display:flex; align-items:center; justify-content:center; min-height:0}
+.cl-svg{
+  width:auto; height:100%; max-width:100%; max-height:100%;
+  color:var(--board-line); aspect-ratio:1;
+}
+.cl-pole{transition:fill-opacity .2s}
+.cl-pole.navrh{
+  fill:var(--ok) !important; fill-opacity:.4 !important;
+  stroke:var(--ok) !important; stroke-opacity:.9 !important; stroke-width:2.5 !important;
+}
+.cl-fig{transition:transform .28s cubic-bezier(.22,1,.36,1)}
+.cl-fignum{
+  font-size:11px; font-weight:800; fill:#fff; fill-opacity:.85;
+  pointer-events:none; font-family:var(--font);
+}
+.cl-fig.hratelna{cursor:pointer; animation:clSkok .85s ease-in-out infinite}
+.cl-fig.hratelna circle:nth-child(2){stroke:#fff; stroke-opacity:1; stroke-width:2.6}
+.cl-fig.posledni circle:nth-child(2){stroke:var(--warn); stroke-opacity:.95; stroke-width:2.4}
+@keyframes clSkok{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-4px)}
+}
+
+.cl-panel{
+  flex-shrink:0; display:flex; flex-direction:column; gap:7px; align-items:center;
+  padding:9px 12px; background:var(--bg2); border:1px solid var(--brd); border-radius:14px;
+}
+.cl-stav{display:flex; align-items:center; gap:10px}
+.cl-stav b{font-size:.95rem; color:var(--tx2)}
+.cl-stav b.muj{color:var(--acc2)}
+.cl-pokusy{display:flex; gap:4px}
+.cl-pokusy i{
+  width:9px; height:9px; border-radius:50%; border:1.5px solid var(--brd2); background:transparent;
+}
+.cl-pokusy i.zbyva{background:var(--acc); border-color:var(--acc)}
+.cl-log{font-size:.74rem; color:var(--tx3); text-align:center; min-height:1em; max-width:600px}
+
+.cl-akce{display:flex; align-items:center; gap:12px}
+.cl-kostka{
+  width:44px; height:44px; border-radius:10px; background:#fff; padding:5px;
+  box-shadow:0 3px 10px rgba(0,0,0,.4); flex-shrink:0;
+}
+.cl-kostka.hazi{animation:clKostka .6s cubic-bezier(.22,1,.36,1)}
+@keyframes clKostka{
+  0%{transform:scale(.6) rotate(-160deg)}
+  60%{transform:scale(1.15) rotate(12deg)}
+  100%{transform:scale(1) rotate(0)}
+}
+.cl-kmrizka{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); width:100%; height:100%}
+.cl-kmrizka i{width:7px; height:7px; border-radius:50%; background:#15151f; justify-self:center; align-self:center}
+.cl-kmrizka i.prazdno{background:transparent}
+.cl-hod{
+  min-width:130px; height:42px; border:none; border-radius:11px; cursor:pointer;
+  background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#0b0b12;
+  font-family:var(--font-display); font-size:.95rem; letter-spacing:.09em; font-weight:700;
+  transition:transform .15s, box-shadow .15s, opacity .15s;
+}
+.cl-hod:not(:disabled):hover{transform:translateY(-2px); box-shadow:0 6px 18px var(--glow-a)}
+.cl-hod:disabled{background:var(--surface2); color:var(--tx3); cursor:not-allowed}
+
+.cl-figurky{display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; min-height:34px}
+.cl-fighint{font-size:.74rem; color:var(--tx3)}
+.cl-figbtn{
+  --c:var(--acc);
+  width:34px; height:34px; border-radius:9px; cursor:pointer;
+  background:color-mix(in srgb,var(--c) 22%,var(--surface));
+  border:2px solid var(--c); color:var(--tx);
+  font-family:var(--font-display); font-size:1rem; font-weight:700;
+  transition:transform .14s, box-shadow .14s;
+}
+.cl-figbtn:hover{transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.35)}
+.cl-figbtn.bere::after{content:'!'; font-size:.7rem; vertical-align:super; color:var(--bad)}
+
+@media (max-width:720px){
+  .cl{padding:8px; gap:7px}
+  .cl-hrac{min-width:58px; padding:4px 6px}
+  .cl-jmeno{font-size:.62rem; max-width:70px}
+  .cl-hod{min-width:104px}
 }

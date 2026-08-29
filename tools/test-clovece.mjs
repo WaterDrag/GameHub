@@ -149,6 +149,28 @@ function zapas(seed, levely) {
     nasel ? (ceka ? 'automat naplánovaný není' : 'CHYBA: hrálo by se samo') : 'situace nenastala');
 }
 
+// ── 4b. Tick sám rozhýbe hru s boty ──────────────────────────
+// Po rozdání karet se `prepocti` volá bez `ctx`, takže o botech neví.
+// Když to tick nedorovná, hra stojí až do vypršení limitu na tah.
+{
+  const rng = makeRng(20250829);
+  const players = Array.from({ length: 3 }, (_, i) => ({
+    uid: 'B' + i, name: 'Bot ' + i, bot: true, botLevel: 'normal',
+  }));
+  const ctx = { rng, players, reject: () => {}, emit: () => {} };
+  const state = hra.createState({ players, rng, options: { mapa: 'mala' } });
+
+  const predHodu = state.hra.hodu;
+  const planPred = state.botAt;
+  hra.tick(state, 0, ctx);                 // první tick jen naplánuje
+  const naplanoval = state.botAt > 0 || state.autoAt > 0;
+  state.botAt = Date.now() - 1;            // a teď ať je čas
+  hra.tick(state, 0, ctx);
+
+  zkus('tick rozhýbe botskou hru', planPred === 0 && naplanoval && state.hra.hodu > predHodu,
+    `plán po rozdání ${planPred}, po ticku naplánováno ${naplanoval}, hodů ${predHodu} → ${state.hra.hodu}`);
+}
+
 // ── 5. Zamykání desky podle počtu hráčů ──────────────────────
 {
   const a = hra.normalizeOptions({ mapa: 'mala' }, 4);
