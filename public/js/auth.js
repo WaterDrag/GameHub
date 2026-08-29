@@ -23,8 +23,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 const google = new GoogleAuthProvider();
 
-export const ADMIN_EMAIL = 'zitkatomik007@gmail.com';
-
 export function onUser(fn) { return onAuthStateChanged(auth, fn); }
 
 export const login = (email, pass) => signInWithEmailAndPassword(auth, email, pass);
