@@ -1,0 +1,353 @@
+// ─────────────────────────────────────────────────────────────
+//  Člověče, nezlob se – deska v SVG.
+//
+//  Kreslí a nic nerozhoduje. Souřadnice si nevymýšlí: bere je ze
+//  sdílené `geometrie()`, takže klasický kříž i osmiramenný kruh jsou
+//  jedna a ta samá kreslicí smyčka.
+//
+//  SVG schválně místo mřížky z divů – deska pro osm hráčů je 80 polí
+//  a musí se vejít na mobil i na monitor beze změny kódu.
+// ─────────────────────────────────────────────────────────────
+import {
+  MAPA_PODLE, geometrie, okruh, naOkruhu, barvaRamene, CIL,
+} from '/shared/games/clovece/const.js';
+
+const NS = 'http://www.w3.org/2000/svg';
+const mk = (tag, attrs = {}) => {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  return n;
+};
+
+// Body na kostce – souřadnice v mřížce 3×3.
+const PUNTIKY = {
+  1: [[1, 1]],
+  2: [[0, 0], [2, 2]],
+  3: [[0, 0], [1, 1], [2, 2]],
+  4: [[0, 0], [0, 2], [2, 0], [2, 2]],
+  5: [[0, 0], [0, 2], [1, 1], [2, 0], [2, 2]],
+  6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
+};
+
+export default {
+  id: 'clovece',
+
+  async mount(ctx) {
+    this.ctx = ctx;
+    this.view = ctx.view;
+    this.animKostka = 0;
+
+    // Deska je SVG, ne plátno – Pixi jde stranou.
+    const stage = document.getElementById('stage');
+    if (stage) { this.stageDisplay = stage.style.display; stage.style.display = 'none'; }
+
+    const host = document.getElementById('view-game');
+    this.root = document.createElement('div');
+    this.root.className = 'cl';
+    host.appendChild(this.root);
+
+    this.root.innerHTML = `
+      <div class="cl-hraci" id="clHraci"></div>
+      <div class="cl-deskawrap"><svg class="cl-svg" id="clSvg"></svg></div>
+      <div class="cl-panel">
+        <div class="cl-stav">
+          <b id="clStav">…</b>
+          <span class="cl-pokusy" id="clPokusy"></span>
+        </div>
+        <div class="cl-log" id="clLog"></div>
+        <div class="cl-akce">
+          <div class="cl-kostka" id="clKostka"><div class="cl-kmrizka"></div></div>
+          <button class="cl-hod" id="clHod" type="button">HODIT</button>
+        </div>
+        <div class="cl-figurky" id="clFigurky"></div>
+      </div>`;
+
+    this.root.querySelector('#clHod').onclick = () => this.hod();
+
+    this.postavDesku(ctx.view);
+    this.render(ctx.view);
+  },
+
+  // ── Deska se staví jednou ──────────────────────────────────
+  postavDesku(v) {
+    const mapa = MAPA_PODLE[v.mapa];
+    this.mapa = mapa;
+    this.geo = geometrie(mapa, v.figurek);
+    const g = this.geo;
+
+    const svg = this.root.querySelector('#clSvg');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${g.velikost} ${g.velikost}`);
+
+    const vrstvaPole = mk('g');
+    const vrstvaFig = mk('g');
+    svg.append(vrstvaPole, vrstvaFig);
+
+    const r = g.rPole;
+
+    // Domečky a cíle patří ramenům, ne sedadlům – nakreslíme je pro
+    // všechna ramena, ale obarvíme jen ta obsazená.
+    const obsazene = new Map(v.ramena.map((rameno, seat) => [rameno, seat]));
+
+    for (let rameno = 0; rameno < mapa.ramen; rameno++) {
+      const seat = obsazene.get(rameno);
+      const b = barvaRamene(rameno);
+      const zive = seat !== undefined;
+
+      for (const p of g.cile[rameno]) {
+        vrstvaPole.append(mk('circle', {
+          cx: p.x, cy: p.y, r: r * 0.9,
+          class: `cl-cil${zive ? '' : ' mrtve'}`,
+          fill: zive ? b.barva : 'transparent',
+          'fill-opacity': zive ? 0.22 : 0,
+          stroke: zive ? b.barva : 'currentColor',
+          'stroke-opacity': zive ? 0.7 : 0.15,
+        }));
+      }
+      for (const p of g.domecky[rameno]) {
+        vrstvaPole.append(mk('circle', {
+          cx: p.x, cy: p.y, r: r * 0.95,
+          fill: zive ? b.barva : 'transparent',
+          'fill-opacity': zive ? 0.14 : 0,
+          stroke: zive ? b.barva : 'currentColor',
+          'stroke-opacity': zive ? 0.5 : 0.12,
+        }));
+      }
+    }
+
+    // Dráha. Startovní pole dostane barvu svého ramene.
+    this.polePrvky = [];
+    const startPole = new Map();
+    for (let rameno = 0; rameno < mapa.ramen; rameno++) {
+      if (obsazene.has(rameno)) startPole.set(naOkruhu(mapa, rameno, 0), rameno);
+    }
+    for (let i = 0; i < g.draha.length; i++) {
+      const p = g.draha[i];
+      const rameno = startPole.get(i);
+      const b = rameno !== undefined ? barvaRamene(rameno) : null;
+      const c = mk('circle', {
+        cx: p.x, cy: p.y, r,
+        class: 'cl-pole' + (b ? ' cl-start' : ''),
+        fill: b ? b.barva : 'currentColor',
+        'fill-opacity': b ? 0.2 : 0.07,
+        stroke: b ? b.barva : 'currentColor',
+        'stroke-opacity': b ? 0.85 : 0.12,
+        'stroke-width': b ? 2.5 : 1,
+      });
+      vrstvaPole.append(c);
+      this.polePrvky.push(c);
+    }
+
+    // Figurky – po jedné skupině na hráče a figurku.
+    this.figPrvky = [];
+    for (let h = 0; h < v.hracu; h++) {
+      const b = barvaRamene(v.ramena[h]);
+      const rada = [];
+      for (let f = 0; f < v.figurek; f++) {
+        const skup = mk('g', { class: 'cl-fig' });
+        skup.append(mk('circle', { r: r * 0.8, fill: b.tmava, cx: 0, cy: 2.5 }));
+        const telo = mk('circle', { r: r * 0.8, fill: b.barva, stroke: '#fff', 'stroke-width': 1.6, 'stroke-opacity': 0.55, cx: 0, cy: 0 });
+        const lesk = mk('circle', { r: r * 0.26, fill: '#fff', 'fill-opacity': 0.4, cx: -r * 0.24, cy: -r * 0.26 });
+        const cislo = mk('text', { class: 'cl-fignum', x: 0, y: r * 0.34, 'text-anchor': 'middle' });
+        cislo.textContent = String(f + 1);
+        skup.append(telo, lesk, cislo);
+        skup.addEventListener('click', () => this.tah(h, f));
+        vrstvaFig.append(skup);
+        rada.push(skup);
+      }
+      this.figPrvky.push(rada);
+    }
+  },
+
+  // ── Kde figurka stojí ──────────────────────────────────────
+  bod(v, hrac, fig) {
+    const krok = v.poz[hrac][fig];
+    const rameno = v.ramena[hrac];
+    if (krok < 0) return this.geo.domecky[rameno][fig];
+    const O = okruh(this.mapa);
+    if (krok >= O) return this.geo.cile[rameno][Math.min(CIL - 1, krok - O)];
+    return this.geo.draha[naOkruhu(this.mapa, rameno, krok)];
+  },
+
+  // ── Akce ───────────────────────────────────────────────────
+  hod() {
+    if (!this.view?.myTurn || this.view.hozeno) return;
+    this.ctx.send('action', { a: 'hod' });
+  },
+
+  tah(hrac, fig) {
+    const v = this.view;
+    if (!v?.myTurn || !v.hozeno) return;
+    if (hrac !== v.mySeat) return;
+    if (!(v.tahy || []).some(t => t.fig === fig)) return;
+    this.ctx.send('action', { a: 'tah', fig });
+  },
+
+  update(view) {
+    if (view.mapa !== this.view?.mapa || view.figurek !== this.view?.figurek) {
+      this.view = view;
+      this.postavDesku(view);
+    }
+    this.view = view;
+    this.render(view);
+  },
+
+  event(kind, data) {
+    if (kind === 'kostka') this.hodKostkou(data.hodnota);
+  },
+
+  hodKostkou(hodnota) {
+    const box = this.root?.querySelector('#clKostka');
+    if (!box) return;
+    box.classList.remove('hazi');
+    void box.offsetWidth;          // restart animace
+    box.classList.add('hazi');
+    this.kresliKostku(hodnota);
+  },
+
+  kresliKostku(n) {
+    const mrizka = this.root.querySelector('.cl-kmrizka');
+    if (!mrizka) return;
+    mrizka.innerHTML = '';
+    if (!n) return;
+    const body = new Set((PUNTIKY[n] || []).map(([r, c]) => `${r},${c}`));
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const d = document.createElement('i');
+        if (!body.has(`${r},${c}`)) d.className = 'prazdno';
+        mrizka.append(d);
+      }
+    }
+  },
+
+  // ── Vykreslení ─────────────────────────────────────────────
+  render(v) {
+    if (!v) return;
+    const O = okruh(this.mapa);
+    const moje = new Set((v.tahy || []).map(t => t.fig));
+    const cile = new Set((v.tahy || []).map(t => t.na));
+
+    // Figurky
+    for (let h = 0; h < v.hracu; h++) {
+      for (let f = 0; f < v.figurek; f++) {
+        const p = this.bod(v, h, f);
+        const skup = this.figPrvky[h]?.[f];
+        if (!skup) continue;
+        skup.setAttribute('transform', `translate(${p.x} ${p.y})`);
+        const hratelna = h === v.mySeat && moje.has(f);
+        skup.classList.toggle('hratelna', hratelna);
+        const posl = v.posledni && v.posledni.hrac === h && v.posledni.fig === f;
+        skup.classList.toggle('posledni', !!posl);
+      }
+    }
+
+    // Cílová pole tahů – ať je vidět, kam to půjde.
+    for (let i = 0; i < this.polePrvky.length; i++) this.polePrvky[i].classList.remove('navrh');
+    if (v.myTurn && v.hozeno) {
+      for (const t of v.tahy || []) {
+        if (t.na >= O) continue;
+        const idx = naOkruhu(this.mapa, v.ramena[v.mySeat], t.na);
+        this.polePrvky[idx]?.classList.add('navrh');
+      }
+    }
+
+    this.renderHraci(v);
+    this.renderPanel(v);
+  },
+
+  renderHraci(v) {
+    const box = this.root.querySelector('#clHraci');
+    const podpis = `${v.naTahu}|${v.hotovo.join(',')}|${v.vitez}`;
+    if (podpis === this._podpisHraci) return;
+    this._podpisHraci = podpis;
+
+    box.innerHTML = '';
+    for (let h = 0; h < v.hracu; h++) {
+      const b = barvaRamene(v.ramena[h]);
+      const p = this.ctx.players.find(x => x.uid === v.seats[h]);
+      const jmeno = (p?.name || 'Hráč') + (p?.bot || p?.botControlled ? ' 🤖' : '');
+      const karta = document.createElement('div');
+      karta.className = 'cl-hrac' + (h === v.naTahu ? ' on' : '') + (h === v.mySeat ? ' ja' : '');
+      karta.style.setProperty('--c', b.barva);
+      const tecky = Array.from({ length: v.figurek }, (_, i) =>
+        `<i class="${i < v.hotovo[h] ? 'doma' : ''}"></i>`).join('');
+      karta.innerHTML = `<span class="cl-pruh"></span>
+        <span class="cl-jmeno">${jmeno}</span>
+        <span class="cl-tecky">${tecky}</span>`;
+      box.append(karta);
+    }
+  },
+
+  renderPanel(v) {
+    const stav = this.root.querySelector('#clStav');
+    const pokusy = this.root.querySelector('#clPokusy');
+    const btn = this.root.querySelector('#clHod');
+    const figBox = this.root.querySelector('#clFigurky');
+
+    const naTahu = this.ctx.players.find(x => x.uid === v.seats[v.naTahu]);
+    const jenJedna = v.hozeno && (v.tahy || []).length === 1;
+
+    if (v.vitez !== null) {
+      stav.textContent = 'Konec hry';
+    } else if (!v.myTurn) {
+      stav.textContent = `Na tahu je ${naTahu?.name || 'soupeř'}`;
+    } else if (!v.hozeno) {
+      stav.textContent = 'Hoď kostkou';
+    } else if (jenJedna) {
+      stav.textContent = 'Jediná možnost – hraje se sama';
+    } else {
+      stav.textContent = 'Vyber figurku';
+    }
+    stav.classList.toggle('muj', !!v.myTurn);
+
+    // Tečky pokusů dávají smysl jen tam, kde jsou tři – tedy když
+    // nemáš čím táhnout a čekáš na šestku.
+    pokusy.innerHTML = '';
+    if (v.myTurn && v.maxPokusu > 1 && !v.hozeno) {
+      for (let i = 0; i < v.maxPokusu; i++) {
+        const d = document.createElement('i');
+        if (i < v.pokusy) d.className = 'zbyva';
+        pokusy.append(d);
+      }
+    }
+
+    btn.disabled = !v.myTurn || v.hozeno || v.vitez !== null;
+    btn.textContent = v.hozeno ? '…' : 'HODIT';
+    this.kresliKostku(v.kostka);
+
+    // Čísla figurek dole. Když je možnost jedna, server ji stejně
+    // za vteřinu zahraje sám, tak se nic nenabízí.
+    const podpis = `${v.myTurn}|${v.hozeno}|${(v.tahy || []).map(t => t.fig).join(',')}`;
+    if (podpis !== this._podpisFig) {
+      this._podpisFig = podpis;
+      figBox.innerHTML = '';
+      if (v.myTurn && v.hozeno && (v.tahy || []).length > 1) {
+        const b = barvaRamene(v.ramena[v.mySeat]);
+        figBox.append(Object.assign(document.createElement('span'),
+          { className: 'cl-fighint', textContent: 'Táhni figurkou:' }));
+        for (const t of v.tahy) {
+          const btn2 = document.createElement('button');
+          btn2.type = 'button';
+          btn2.className = 'cl-figbtn' + (t.vyhodi ? ' bere' : '');
+          btn2.style.setProperty('--c', b.barva);
+          btn2.textContent = String(t.fig + 1);
+          btn2.title = t.vyhodi ? 'Vyhodí soupeře' : '';
+          btn2.onclick = () => this.tah(v.mySeat, t.fig);
+          figBox.append(btn2);
+        }
+      }
+    }
+
+    const log = this.root.querySelector('#clLog');
+    const t = (v.log || []).slice(-3).join(' · ');
+    if (t !== log.textContent) log.textContent = t;
+  },
+
+  resize() {},
+
+  unmount() {
+    const stage = document.getElementById('stage');
+    if (stage) stage.style.display = this.stageDisplay ?? '';
+    this.root?.remove();
+  },
+};

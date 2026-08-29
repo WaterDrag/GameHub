@@ -19,6 +19,7 @@ export const C = {
   READY:      'ready',      // {v}
   START:      'start',      // {}         – jen host
   KICK:       'kick',       // {uid}      – jen host
+  SET_OPTION: 'setOption',  // {key, value} – jen host, jen v lobby
   ADD_BOT:    'addBot',     // {difficulty}
   DEL_BOT:    'delBot',     // {uid}
   CHAT:       'chat',       // {msg}

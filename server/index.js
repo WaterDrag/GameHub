@@ -240,6 +240,12 @@ async function handle(conn, msg) {
       return room.remove(msg.uid, 'kicked');
     }
 
+    case C.SET_OPTION: {
+      const err = room.setOption(conn.user.uid, msg.key, msg.value);
+      if (err) send(ws, S.ERROR, { msg: err });
+      return;
+    }
+
     case C.ADD_BOT:
       if (conn.user.uid !== room.hostUid) return send(ws, S.ERROR, { msg: 'Jen hostitel.' });
       if (!room.addBot(msg.difficulty)) send(ws, S.ERROR, { msg: 'Bota teď přidat nejde.' });

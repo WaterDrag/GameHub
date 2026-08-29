@@ -386,6 +386,40 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .opt-text b{font-size:.87rem; font-weight:600}
 .opt-text small{font-size:.73rem; color:var(--tx3); line-height:1.35}
 
+.opt.zamceno{opacity:.6; cursor:default}
+
+/* Volba z možností – nastavuje se až v čekárně, kde je znám počet hráčů. */
+.opt-panel{display:flex; flex-direction:column; gap:9px; text-align:left; margin-top:4px}
+.opt-volba{
+  background:var(--bg2); border:1px solid var(--brd); border-radius:12px; padding:9px 11px 11px;
+}
+.opt-volba.zamceno{opacity:.75}
+.opt-label{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:7px}
+.opt-label b{font-size:.85rem; font-weight:600}
+.opt-label .zamek{font-size:.7rem; color:var(--warn)}
+.opt-choices{display:flex; gap:6px; flex-wrap:wrap}
+.opt-choice{
+  flex:1 1 auto; min-width:96px; display:flex; flex-direction:column; gap:2px; align-items:flex-start;
+  padding:7px 10px; border-radius:10px; cursor:pointer; text-align:left;
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx1);
+  font:inherit; transition:border-color .16s, background .16s;
+}
+.opt-choice:not(:disabled):hover{border-color:var(--brd2)}
+.opt-choice.sel{
+  border-color:var(--acc); background:color-mix(in srgb,var(--acc) 12%,var(--surface));
+}
+.opt-choice:disabled{cursor:default; opacity:.55}
+.opt-choice .oc-top{font-size:.83rem; font-weight:600}
+.opt-choice small{font-size:.7rem; color:var(--tx3); line-height:1.3}
+.opt-odhad{
+  font-size:.78rem; color:var(--tx2); padding:7px 11px; border-radius:10px;
+  background:color-mix(in srgb,var(--acc) 8%,transparent);
+  border:1px dashed color-mix(in srgb,var(--acc) 30%,transparent);
+}
+.opt-odhad b{color:var(--acc2)}
+.opt-odhad small{color:var(--tx3); font-size:.7rem}
+.opt-pozn{font-size:.72rem; color:var(--tx3); text-align:center}
+
 .opt-badges{display:flex; gap:6px; flex-wrap:wrap; justify-content:center}
 .opt-badge{
   font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:99px;

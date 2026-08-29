@@ -134,6 +134,43 @@ export class Room {
     return p;
   }
 
+  // ── Volby před hrou ──────────────────────────────────────
+  //  Hub o žádné konkrétní volbě neví. Hra si je popisuje sama a sama
+  //  taky řekne, které z nich při daném počtu hráčů nedávají smysl –
+  //  proto `normalizeOptions`. Volá se při každém výpisu místnosti,
+  //  takže se zámek přepočítá i tehdy, když někdo jen přijde nebo odejde.
+  normOptions() {
+    if (!this.game.normalizeOptions) return { zamky: {}, info: null };
+    const r = this.game.normalizeOptions(this.options || {}, this.activeCount) || {};
+    if (r.options) this.options = r.options;
+    return { zamky: r.zamky || {}, info: r.info || null };
+  }
+
+  setOption(uid, key, value) {
+    if (uid !== this.hostUid) return 'Volby mění jen hostitel.';
+    if (this.status !== STATUS.LOBBY) return 'Hra už běží.';
+
+    const def = (this.game.options || []).find(o => o.key === key);
+    if (!def) return 'Takovou volbu hra nemá.';
+
+    let v = value;
+    if (def.typ === 'volba') {
+      if (!def.volby?.some(x => x.v === v)) return 'Takovou možnost hra nenabízí.';
+    } else {
+      v = !!v;
+    }
+
+    // Zamčenou volbu nepřepíšeme ani hostiteli – jinak by šlo poslat
+    // `setOption` z konzole a spustit osm hráčů na čtyřramenné desce.
+    const { zamky } = this.normOptions();
+    if (zamky[key]) return zamky[key];
+
+    this.options = { ...this.options, [key]: v };
+    this.normOptions();
+    this.broadcastRoom();
+    return null;
+  }
+
   // ── Start ────────────────────────────────────────────────
   requestStart(uid) {
     if (uid !== this.hostUid) return 'Jen hostitel může spustit hru.';
@@ -354,6 +391,7 @@ export class Room {
   }
 
   summary() {
+    const { zamky, info } = this.normOptions();
     return {
       code: this.code, gameId: this.game.id, gameTitle: this.game.title, emoji: this.game.emoji,
       visibility: this.visibility, status: this.status,
@@ -361,6 +399,8 @@ export class Room {
       maxPlayers: this.maxPlayers, minPlayers: this.game.minPlayers,
       supportsBots: !!this.game.supportsBots, botLevels: this.game.botLevels || [],
       options: this.options, optionDefs: this.game.options || [],
+      optionsTitle: this.game.optionsTitle || null,
+      optionZamky: zamky, optionInfo: info,
       canStart: this.activeCount >= this.game.minPlayers,
       chat: this.chat.slice(-30),
     };

@@ -381,23 +381,72 @@ function openGame(g) {
     // Nadpis si může hra pojmenovat sama – „Události“ sedí aréně,
     // ale u závodů jsou to prostě prvky na trati.
     box.append(el('div', { class: 'opt-head', text: g.optionsTitle || 'Události ve hře' }));
-    for (const o of opts) {
-      box.append(el('label', { class: 'opt' },
-        el('input', { type: 'checkbox', 'data-key': o.key, ...(o.def ? { checked: 'checked' } : {}) }),
-        el('span', { class: 'opt-emoji', text: o.emoji || '' }),
-        el('span', { class: 'opt-text' },
-          el('b', { text: o.label }),
-          el('small', { text: o.desc || '' }),
-        ),
-      ));
-    }
+    for (const o of opts) box.append(optionRow(o, null, {}));
   }
   openModal('modalPick');
+}
+
+// Jeden řádek nastavení. Používá se dvakrát: při zakládání místnosti
+// (kde se hodnoty jen posbírají z DOMu) i v čekárně (kde se každá změna
+// hned posílá serveru). Hub nezná ani jednu konkrétní volbu – všechno,
+// včetně zámků a popisků, přijde od hry.
+function optionRow(o, hodnoty, { zamek = null, info = null, editable = true, onZmena = null } = {}) {
+  const mam = hodnoty ? hodnoty[o.key] : undefined;
+
+  if (o.typ === 'volba') {
+    const cur = mam !== undefined ? mam : o.def;
+    const box = el('div', { class: `opt-volba${zamek ? ' zamceno' : ''}`, 'data-key': o.key });
+    box.dataset.v = JSON.stringify(cur);
+    box.append(el('div', { class: 'opt-label' },
+      el('b', { text: o.label }),
+      zamek ? el('small', { class: 'zamek', text: `🔒 ${zamek}` }) : null,
+    ));
+    const rada = el('div', { class: 'opt-choices' });
+    for (const v of o.volby || []) {
+      const popis = info?.[o.key]?.[v.v] || v.desc || '';
+      const b = el('button', {
+        type: 'button',
+        class: `opt-choice${v.v === cur ? ' sel' : ''}`,
+        title: v.desc || '',
+        disabled: (!editable || zamek) ? '' : null,
+      },
+        el('span', { class: 'oc-top', text: `${v.emoji ? v.emoji + ' ' : ''}${v.label}` }),
+        popis ? el('small', { text: popis }) : null,
+      );
+      b.onclick = () => {
+        if (!editable || zamek) return;
+        box.dataset.v = JSON.stringify(v.v);
+        for (const x of rada.children) x.classList.toggle('sel', x === b);
+        onZmena?.(o.key, v.v);
+      };
+      rada.append(b);
+    }
+    box.append(rada);
+    return box;
+  }
+
+  const cur = mam !== undefined ? !!mam : !!o.def;
+  const inp = el('input', {
+    type: 'checkbox', 'data-key': o.key,
+    ...(cur ? { checked: 'checked' } : {}),
+    disabled: editable ? null : '',
+  });
+  inp.onchange = () => onZmena?.(o.key, inp.checked);
+  return el('label', { class: `opt${editable ? '' : ' zamceno'}` }, inp,
+    el('span', { class: 'opt-emoji', text: o.emoji || '' }),
+    el('span', { class: 'opt-text' },
+      el('b', { text: o.label }),
+      el('small', { text: o.desc || '' }),
+    ),
+  );
 }
 
 function pickedOptions() {
   const out = {};
   for (const i of $$('#pickOptions input[type=checkbox]')) out[i.dataset.key] = i.checked;
+  for (const b of $$('#pickOptions .opt-volba')) {
+    try { out[b.dataset.key] = JSON.parse(b.dataset.v); } catch (e) { /* nevadí */ }
+  }
   return out;
 }
 
@@ -431,13 +480,31 @@ function renderRoom() {
   $('#roomVis').textContent = r.visibility === 'public' ? '🌐 veřejná' : '🔒 soukromá';
   $('#roomCount').textContent = `${r.players.length}/${r.maxPlayers}`;
 
-  // zapnuté události ať vidí i ten, kdo se jen připojil
+  // Nastavení se mění TADY, ne při zakládání místnosti. Teprve v čekárně
+  // je totiž známý počet hráčů, a podle něj hra některé volby zamyká.
   const ob = $('#roomOptions');
   ob.innerHTML = '';
-  const zapnute = (r.optionDefs || []).filter(o => r.options?.[o.key]);
-  ob.classList.toggle('hidden', !zapnute.length);
-  for (const o of zapnute) {
-    ob.append(el('span', { class: 'opt-badge', title: o.desc }, `${o.emoji} ${o.label}`));
+  const defs = r.optionDefs || [];
+  ob.className = 'opt-panel';
+  ob.classList.toggle('hidden', !defs.length);
+  if (defs.length) {
+    ob.append(el('div', { class: 'opt-head', text: r.optionsTitle || 'Nastavení hry' }));
+    for (const o of defs) {
+      ob.append(optionRow(o, r.options, {
+        zamek: r.optionZamky?.[o.key] || null,
+        info: r.optionInfo,
+        editable: amHost,
+        onZmena: (key, value) => net.send('setOption', { key, value }),
+      }));
+    }
+    if (r.optionInfo?.odhad) {
+      ob.append(el('div', { class: 'opt-odhad' },
+        el('span', { text: '⏱ Odhad délky partie: ' }),
+        el('b', { text: r.optionInfo.odhad }),
+        el('small', { text: ' (změřeno na botech, ne slib)' }),
+      ));
+    }
+    if (!amHost) ob.append(el('div', { class: 'opt-pozn', text: 'Nastavení mění hostitel.' }));
   }
 
   const list = $('#playerList');
