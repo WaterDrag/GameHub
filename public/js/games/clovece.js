@@ -89,14 +89,16 @@ export default {
     // Domečky a cíle patří ramenům, ne sedadlům – nakreslíme je pro
     // všechna ramena, ale obarvíme jen ta obsazená.
     const obsazene = new Map(v.ramena.map((rameno, seat) => [rameno, seat]));
+    this.cilPrvky = [];      // kvůli zvýraznění tahu do domečku
 
     for (let rameno = 0; rameno < mapa.ramen; rameno++) {
       const seat = obsazene.get(rameno);
       const b = barvaRamene(rameno);
       const zive = seat !== undefined;
 
+      const cilRada = [];
       for (const p of g.cile[rameno]) {
-        vrstvaPole.append(mk('circle', {
+        const c = mk('circle', {
           cx: p.x, cy: p.y, r: r * 0.9,
           class: `cl-cil${zive ? '' : ' mrtve'}`,
           fill: zive ? b.barva : 'transparent',
@@ -104,8 +106,11 @@ export default {
           stroke: zive ? b.barva : 'currentColor',
           'stroke-opacity': zive ? 0.9 : 0.15,
           'stroke-width': zive ? 2 : 1,
-        }));
+        });
+        vrstvaPole.append(c);
+        cilRada.push(c);
       }
+      this.cilPrvky.push(cilRada);
       for (const p of g.domecky[rameno]) {
         vrstvaPole.append(mk('circle', {
           cx: p.x, cy: p.y, r: r * 0.95,
@@ -351,13 +356,20 @@ export default {
       }
     }
 
-    // Cílová pole tahů – ať je vidět, kam to půjde.
-    for (let i = 0; i < this.polePrvky.length; i++) this.polePrvky[i].classList.remove('navrh');
+    // Cílová pole tahů – ať je vidět, kam to půjde. Platí to i pro tah
+    // DO DOMEČKU: ten se dřív nezvýrazňoval vůbec, takže když šlo dojít
+    // do cíle, hráč nevěděl kam.
+    for (const c of this.polePrvky) c.classList.remove('navrh');
+    for (const rada of this.cilPrvky || []) for (const c of rada) c.classList.remove('navrh');
+
     if (v.myTurn && v.hozeno) {
+      const mojeRameno = v.ramena[v.mySeat];
       for (const t of v.tahy || []) {
-        if (t.na >= O) continue;
-        const idx = naOkruhu(this.mapa, v.ramena[v.mySeat], t.na);
-        this.polePrvky[idx]?.classList.add('navrh');
+        if (t.na >= O) {
+          this.cilPrvky?.[mojeRameno]?.[t.na - O]?.classList.add('navrh');
+        } else {
+          this.polePrvky[naOkruhu(this.mapa, mojeRameno, t.na)]?.classList.add('navrh');
+        }
       }
     }
 

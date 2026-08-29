@@ -1291,10 +1291,13 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   color:var(--board-line); aspect-ratio:1;
 }
 .cl-pole{transition:fill-opacity .2s}
-.cl-pole.navrh{
+/* Návrh tahu. Platí pro dráhu i pro políčka domečku – ta mají jinou
+   třídu, takže na .cl-pole samotný se zvýraznění cíle nechytlo. */
+.cl-pole.navrh, .cl-cil.navrh{
   fill:var(--ok) !important; fill-opacity:.4 !important;
   stroke:var(--ok) !important; stroke-opacity:.9 !important; stroke-width:2.5 !important;
 }
+.cl-cil.navrh{fill-opacity:.5 !important}
 .cl-fig{transition:transform .28s cubic-bezier(.22,1,.36,1)}
 .cl-fignum{
   font-size:11px; font-weight:800; fill:#fff; fill-opacity:.85;
