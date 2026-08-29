@@ -762,6 +762,34 @@ do Workers runtime.
 Na free tieru, který uspává, se hodí ping na `/health` (vrací i počet
 místností a hráčů) třeba přes UptimeRobot.
 
+## Na GitHub
+
+Jedním klikem na `nahrat.bat`. Poprvé se zeptá na adresu repozitáře
+(založ **prázdný** na <https://github.com/new> — bez README, bez `.gitignore`,
+bez licence, jinak se první nahrání odmítne), pak už si ji pamatuje git sám.
+
+Skript **než cokoliv odešle, ověří, že tajné věci zůstanou doma** a při
+nesrovnalosti se zastaví. Ven nejde:
+
+| Co | Proč |
+|---|---|
+| `server/.secret` | klíč, kterým server podepisuje přihlášení hráčů — kdo ho má, přihlásí se za kohokoliv |
+| `nasadit.bat` | je v něm adresa serveru |
+| `*.key`, `*.pem` | SSH klíče; kdo je má, je na serveru správcem |
+| `node_modules/` | doinstaluje se z `package-lock.json` |
+
+Firebase konfigurace v `public/js/auth.js` tam naopak **patří** — webové klíče
+Firebase jsou veřejné z principu, chrání se pravidly na straně Firebase,
+ne utajením. Serverí klíče (service account JSON) v projektu nejsou vůbec.
+
+> `Desktop\GameHub-export` **není** zdroj pro GitHub — tu si vyrábí
+> `nasadit.bat` jako odkladiště pro `scp`. Na GitHub se posílá přímo tahle
+> složka; filtrování obstará `.gitignore`.
+
+`.gitattributes` drží konce řádků na LF i v pracovní kopii. Bez toho by git
+na Windows udělal z `nasazeni/gamehub.service` a `Caddyfile` CRLF a systemd
+ani Caddy by je na serveru nepřečetly.
+
 ## Struktura
 
 ```
