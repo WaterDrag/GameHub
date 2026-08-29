@@ -1300,9 +1300,13 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   font-size:11px; font-weight:800; fill:#fff; fill-opacity:.85;
   pointer-events:none; font-family:var(--font);
 }
-.cl-fig.hratelna{cursor:pointer; animation:clSkok .85s ease-in-out infinite}
-.cl-fig.hratelna circle:nth-child(2){stroke:#fff; stroke-opacity:1; stroke-width:2.6}
-.cl-fig.posledni circle:nth-child(2){stroke:var(--warn); stroke-opacity:.95; stroke-width:2.4}
+/* Poskakuje VNITŘNÍ skupina. Kdyby animace seděla na .cl-fig, přepsala by
+   jeho `transform`, kterým je figurka umístěná na desce – a figurka by
+   skočila do rohu. */
+.cl-fig.hratelna{cursor:pointer}
+.cl-fig.hratelna .cl-figv{animation:clSkok .85s ease-in-out infinite}
+.cl-fig.hratelna .cl-figv circle:nth-child(2){stroke:#fff; stroke-opacity:1; stroke-width:2.6}
+.cl-fig.posledni .cl-figv circle:nth-child(2){stroke:var(--warn); stroke-opacity:.95; stroke-width:2.4}
 @keyframes clSkok{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-4px)}

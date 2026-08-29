@@ -100,18 +100,20 @@ export default {
           cx: p.x, cy: p.y, r: r * 0.9,
           class: `cl-cil${zive ? '' : ' mrtve'}`,
           fill: zive ? b.barva : 'transparent',
-          'fill-opacity': zive ? 0.22 : 0,
+          'fill-opacity': zive ? 0.32 : 0,
           stroke: zive ? b.barva : 'currentColor',
-          'stroke-opacity': zive ? 0.7 : 0.15,
+          'stroke-opacity': zive ? 0.9 : 0.15,
+          'stroke-width': zive ? 2 : 1,
         }));
       }
       for (const p of g.domecky[rameno]) {
         vrstvaPole.append(mk('circle', {
           cx: p.x, cy: p.y, r: r * 0.95,
           fill: zive ? b.barva : 'transparent',
-          'fill-opacity': zive ? 0.14 : 0,
+          'fill-opacity': zive ? 0.24 : 0,
           stroke: zive ? b.barva : 'currentColor',
-          'stroke-opacity': zive ? 0.5 : 0.12,
+          'stroke-opacity': zive ? 0.75 : 0.12,
+          'stroke-width': zive ? 2 : 1,
         }));
       }
     }
@@ -130,9 +132,9 @@ export default {
         cx: p.x, cy: p.y, r,
         class: 'cl-pole' + (b ? ' cl-start' : ''),
         fill: b ? b.barva : 'currentColor',
-        'fill-opacity': b ? 0.2 : 0.07,
+        'fill-opacity': b ? 0.3 : 0.10,
         stroke: b ? b.barva : 'currentColor',
-        'stroke-opacity': b ? 0.85 : 0.12,
+        'stroke-opacity': b ? 0.95 : 0.18,
         'stroke-width': b ? 2.5 : 1,
       });
       vrstvaPole.append(c);
@@ -145,13 +147,20 @@ export default {
       const b = barvaRamene(v.ramena[h]);
       const rada = [];
       for (let f = 0; f < v.figurek; f++) {
+        // Dvě skupiny schválně: vnější drží POZICI (atribut transform),
+        // vnitřní se smí hýbat animací. V SVG je totiž `transform` atribut
+        // tou samou vlastností jako CSS `transform`, takže poskakování
+        // hratelné figurky vnější pozici přepsalo a figurka skočila do
+        // rohu desky. Na atributu to vidět nebylo – ten zůstal správný.
         const skup = mk('g', { class: 'cl-fig' });
-        skup.append(mk('circle', { r: r * 0.8, fill: b.tmava, cx: 0, cy: 2.5 }));
+        const vnitrek = mk('g', { class: 'cl-figv' });
+        vnitrek.append(mk('circle', { r: r * 0.8, fill: b.tmava, cx: 0, cy: 2.5 }));
         const telo = mk('circle', { r: r * 0.8, fill: b.barva, stroke: '#fff', 'stroke-width': 1.6, 'stroke-opacity': 0.55, cx: 0, cy: 0 });
         const lesk = mk('circle', { r: r * 0.26, fill: '#fff', 'fill-opacity': 0.4, cx: -r * 0.24, cy: -r * 0.26 });
         const cislo = mk('text', { class: 'cl-fignum', x: 0, y: r * 0.34, 'text-anchor': 'middle' });
         cislo.textContent = String(f + 1);
-        skup.append(telo, lesk, cislo);
+        vnitrek.append(telo, lesk, cislo);
+        skup.append(vnitrek);
         skup.addEventListener('click', () => this.tah(h, f));
         vrstvaFig.append(skup);
         rada.push(skup);
