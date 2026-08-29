@@ -1,0 +1,17 @@
+node_modules/
+.env
+*.log
+.DS_Store
+server/.secret
+
+# lokální nastavení serveru – nikdy do gitu
+gamehub.env
+nasazeni/*.local
+
+# SSH klíče – kdo je má, je na serveru správcem
+*.key
+*.pem
+.ssh/
+
+# skript na nasazení obsahuje adresu serveru, na server nepatří
+nasadit.bat

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Game Hub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<!-- Motiv nastavíme dřív, než se cokoliv vykreslí – jinak stránka
+     probliknou výchozí paletou, než doběhne modul. -->
+<script>
+  try {
+    var t = localStorage.getItem('gh_theme');
+    if (['midnight','neon','sakura','crt','ember','arctic'].indexOf(t) >= 0)
+      document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@700;900&family=Playfair+Display:wght@700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub.css">
+</head>
+<body data-screen="login">
+
+<header>
+  <div class="logo">
+    <span class="logo-mark">⚡</span>
+    <span class="logo-text">GAME HUB</span>
+  </div>
+
+  <div class="head-mid">
+    <input id="codeInput" maxlength="5" placeholder="Kód místnosti" autocomplete="off" spellcheck="false">
+    <button id="btnJoinCode" class="btn ok">Připojit</button>
+  </div>
+
+  <div class="head-right">
+    <div class="conn" title="Stav spojení se serverem">
+      <span id="connDot" class="conn-dot bad"></span>
+      <span id="connText">offline</span>
+      <span id="connPing" class="ping"></span>
+    </div>
+    <div id="userChip" class="user-chip">
+      <div id="userAvatar" class="avatar">?</div>
+      <span id="userName"></span>
+    </div>
+    <button id="btnLogin" class="btn primary">Přihlásit se</button>
+    <div class="menu-wrap">
+      <button id="btnSettings" class="btn icon hidden">⚙️</button>
+      <div id="menu" class="menu">
+        <div id="btnTheme" class="menu-item">🎨 Vzhled</div>
+        <div id="btnNick" class="menu-item">👤 Změnit přezdívku</div>
+        <div class="menu-sep"></div>
+        <div id="btnLogout" class="menu-item danger">🚪 Odhlásit se</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Přihlášení ─────────────────────────────────────────── -->
+<section id="view-login" class="view center active">
+  <div class="hero">
+    <h1>Hraj s kamarády.<br><span>Bez podvodů.</span></h1>
+    <p>Hry běží na serveru, ne v tvém prohlížeči. Odpojíš se? Převezme tě bot a počká, než se vrátíš.</p>
+    <div class="hero-start">
+      <input id="nickStart" maxlength="16" placeholder="Tvoje přezdívka" autocomplete="off" spellcheck="false">
+      <button id="btnPlayGuest" class="btn ok">Hrát ▸</button>
+    </div>
+    <div class="hero-alt">
+      Bez registrace. Chceš trvalý profil a statistiky?
+      <a id="btnLoginBig" href="#">Přihlas se</a>.
+    </div>
+    <div id="heroThemes" class="hero-themes"></div>
+  </div>
+</section>
+
+<!-- ── Hub ───────────────────────────────────────────────── -->
+<section id="view-hub" class="view">
+  <div class="hub">
+
+    <div class="hero-card">
+      <div class="hero-id">
+        <div id="heroAvatar" class="hero-avatar">?</div>
+        <div>
+          <div class="hero-hi">Vítej zpátky</div>
+          <div id="heroNick" class="hero-nick">Hráč</div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <div class="hero-stat"><b id="statPing">–</b><small>odezva</small></div>
+        <div class="hero-stat"><b id="statOnline">–</b><small>online</small></div>
+        <div class="hero-stat"><b id="statRooms">–</b><small>místností</small></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="hub-tools">
+        <div id="gameTabs" class="tabs">
+          <button class="tab active" data-f="all">Vše</button>
+          <button class="tab" data-f="realtime">⚡ Real-time</button>
+          <button class="tab" data-f="turn">♟ Tahové</button>
+        </div>
+        <input id="gameSearch" placeholder="Hledat hru…" autocomplete="off">
+      </div>
+      <div id="gameGrid" class="game-grid"></div>
+    </div>
+
+    <div>
+      <h2 class="sec-title">Živě <span class="live-dot"></span></h2>
+      <div id="roomList" class="room-list"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Čekárna ───────────────────────────────────────────── -->
+<section id="view-room" class="view center">
+  <div class="panel room-panel">
+    <h2 id="roomTitle">Hra</h2>
+    <div id="roomCode" class="code" title="Klikni pro zkopírování">-----</div>
+    <div class="code-hint"><span id="roomVis"></span> · klikni na kód pro zkopírování</div>
+    <div id="roomOptions" class="opt-badges"></div>
+
+    <div class="row between">
+      <span class="sec-label">Hráči</span>
+      <span id="roomCount" class="sec-label">0/0</span>
+    </div>
+    <div id="playerList" class="player-list"></div>
+
+    <div class="row" id="botRow">
+      <button id="btnAddBot" class="btn ghost">🤖 Přidat bota</button>
+      <select id="lobbyBotLevel" class="sel">
+        <option value="easy">lehký</option>
+        <option value="normal" selected>normální</option>
+        <option value="hard">těžký</option>
+      </select>
+    </div>
+
+    <button id="btnStart" class="btn ok big">🚀 Spustit hru</button>
+    <div id="waitMsg" class="wait">Čekání na hostitele…</div>
+
+    <div class="chat">
+      <div id="chatLog" class="chat-log"></div>
+      <div class="row">
+        <input id="chatInput" placeholder="Napiš zprávu…" maxlength="200">
+        <button id="btnChat" class="btn ghost">Odeslat</button>
+      </div>
+    </div>
+
+    <button id="btnLeaveRoom" class="btn ghost">Odejít z čekárny</button>
+  </div>
+</section>
+
+<!-- ── Hra ───────────────────────────────────────────────── -->
+<section id="view-game" class="view">
+  <div id="stage" class="stage"></div>
+  <div id="hud" class="hud"></div>
+  <button id="btnLeaveGame" class="btn danger leave-btn">✕ Opustit hru</button>
+
+  <div id="gameOver" class="overlay">
+    <div class="panel over-panel">
+      <div class="over-title"></div>
+      <div class="over-reason"></div>
+      <div class="row">
+        <button id="btnRematch" class="btn primary">↻ Odveta</button>
+        <button id="btnBackToHub" class="btn ghost">Zpět do hubu</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="countdown" class="overlay hard">
+  <div class="count-num">3</div>
+  <div class="count-label">Hra začíná!</div>
+</div>
+
+<!-- ── Modály ────────────────────────────────────────────── -->
+<div id="modalTheme" class="modal">
+  <div class="panel wide">
+    <h3>🎨 Vzhled</h3>
+    <p class="code-hint" style="margin:0;text-align:left">Motiv se propíše i do herní plochy, ne jen do menu.</p>
+    <div id="themeGrid" class="theme-grid"></div>
+    <button class="btn ghost" onclick="document.getElementById('modalTheme').classList.remove('open')">Hotovo</button>
+  </div>
+</div>
+
+<div id="modalAuth" class="modal">
+  <div class="panel">
+    <h3>Přihlášení</h3>
+    <input id="authEmail" type="email" placeholder="e-mail" autocomplete="email">
+    <input id="authPass" type="password" placeholder="heslo" autocomplete="current-password">
+    <div class="row">
+      <button id="btnDoLogin" class="btn primary">Přihlásit</button>
+      <button id="btnDoRegister" class="btn ghost">Registrovat</button>
+    </div>
+    <div class="divider">nebo</div>
+    <button id="btnGoogle" class="btn ghost">Pokračovat přes Google</button>
+  </div>
+</div>
+
+<div id="modalNick" class="modal">
+  <div class="panel">
+    <h3>Přezdívka</h3>
+    <input id="nickInput" maxlength="16" placeholder="Jak ti mají říkat?">
+    <button id="btnSaveNick" class="btn primary">Uložit</button>
+  </div>
+</div>
+
+<div id="modalPick" class="modal">
+  <div class="panel">
+    <h3 id="pickTitle">Hra</h3>
+    <button id="btnPickQuick" class="btn ok big">⚡ Rychlá hra</button>
+    <div class="divider">nebo si nastav vlastní místnost</div>
+    <label class="field">
+      <span>Viditelnost</span>
+      <select id="pickVis" class="sel">
+        <option value="public">🌐 veřejná – kdokoliv se přidá</option>
+        <option value="private">🔒 soukromá – jen na kód</option>
+      </select>
+    </label>
+    <div id="pickBotRow" class="field-row">
+      <label class="field">
+        <span>Boti</span>
+        <input id="pickBots" type="number" min="0" max="7" value="0">
+      </label>
+      <label class="field">
+        <span>Obtížnost</span>
+        <select id="pickBotLevel" class="sel">
+          <option value="easy">lehký</option>
+          <option value="normal" selected>normální</option>
+          <option value="hard">těžký</option>
+        </select>
+      </label>
+    </div>
+    <div id="pickOptions" class="opt-list hidden"></div>
+    <button id="btnPickCreate" class="btn primary">🏠 Vytvořit místnost</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script type="module" src="js/hub.js"></script>
+</body>
+</html>

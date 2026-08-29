@@ -1,0 +1,25 @@
+# Caddy před Node serverem. Vyřídí HTTPS certifikát sám a zdarma
+# (Let's Encrypt) a přeposílá i WebSockety, na kterých hra stojí.
+#
+# Kam: /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Bez HTTPS to nepojede: prohlížeč na zabezpečené stránce nepustí
+# nešifrovaný WebSocket a přihlášení přes Google taky HTTPS vyžaduje.
+
+# Adresa z duckdns.org. Caddy si k ní certifikát obstará sám, jakmile
+# na stroj vede port 80 a 443 (viz krok 5 v NAVOD.md).
+vgamehub.duckdns.org {
+	reverse_proxy localhost:3000
+
+	# Ať se v logu pozná, kdo se připojil, i když jedeme za proxy.
+	header {
+		-Server
+	}
+
+	encode gzip
+	log {
+		output file /var/log/caddy/gamehub.log
+		format console
+	}
+}

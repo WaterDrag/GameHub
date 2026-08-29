@@ -1,0 +1,16 @@
+{
+  "name": "gamehub",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Game Hub – autoritativní herní server + Pixi klient",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "jose": "^5.9.6"
+  }
+}

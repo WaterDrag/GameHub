@@ -1,0 +1,12 @@
+# Konce radku drzime na LF i ve working copy.
+# Bez toho by git na Windows udelal z gamehub.service a Caddyfile CRLF
+# a systemd ani Caddy by je na serveru neprecetly.
+* text=auto eol=lf
+
+# Davkove soubory jsou vyjimka - cmd chce CRLF.
+*.bat text eol=crlf
+
+# Binarni veci se nesahaji.
+*.png binary
+*.jpg binary
+*.ico binary

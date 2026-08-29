@@ -1,0 +1,39 @@
+# systemd jednotka – drží server běžící a nahodí ho po pádu i po restartu stroje.
+# Kam: /etc/systemd/system/gamehub.service
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gamehub
+#   sudo systemctl status gamehub
+#   journalctl -u gamehub -f          # živý výpis
+
+[Unit]
+Description=Game Hub – herní server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/gamehub
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+
+# Podpisový klíč pro hostovské identity. Bez něj si server při každém startu
+# vygeneruje nový a všem hostům zmizí identita. Soubor si vyrob na serveru:
+#   printf 'GH_SECRET=%s\n' "$(openssl rand -hex 32)" | sudo tee /etc/gamehub.env
+#   sudo chmod 600 /etc/gamehub.env
+# Do gitu NEPATŘÍ.
+EnvironmentFile=/etc/gamehub.env
+Environment=PORT=3000
+# GH_DEV_AUTH tady nesmí být NIKDY – pouští přihlášení bez ověření.
+
+# Server nepotřebuje nic mimo svoji složku, tak mu zbytek systému zavřeme.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/gamehub/server
+
+[Install]
+WantedBy=multi-user.target
