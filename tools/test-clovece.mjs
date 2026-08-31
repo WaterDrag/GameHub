@@ -4,7 +4,11 @@
 //
 //   node tools/test-clovece.mjs [hráčů] [zápasů] [mapa]
 import hra from '../server/games/clovece.js';
-import { tahy, maxPokusu, hotovych } from '../shared/games/clovece/pravidla.js';
+import {
+  tahy, maxPokusu, hotovych, novaHra, hod, tah, snipe, sniperCile,
+  obetuj, lzeObetovat, cesta, zabaOmezuje,
+} from '../shared/games/clovece/pravidla.js';
+import { MODY, NERVY_SANCE } from '../shared/games/clovece/mody.js';
 import { MAPA_PODLE, okruh } from '../shared/games/clovece/const.js';
 import { makeRng } from '../shared/rng.js';
 
@@ -17,13 +21,13 @@ const vysledky = [];
 const zkus = (popis, ok, detail) => vysledky.push({ popis, ok, detail });
 
 // ── Odehraj jeden zápas ──────────────────────────────────────
-function zapas(seed, levely) {
+function zapas(seed, levely, mody = {}) {
   const rng = makeRng(seed);
   const players = levely.map((lv, i) => ({
     uid: 'P' + (i + 1), name: 'Hráč ' + (i + 1), bot: true, botLevel: lv,
   }));
   const ctx = { rng, players, reject: () => {}, emit: () => {} };
-  const state = hra.createState({ players, rng, options: { mapa: MAPA } });
+  const state = hra.createState({ players, rng, options: { mapa: MAPA, ...mody } });
 
   const st = { kroku: 0, hodu: 0, vyhozeni: 0, doma: 0, zaseknuto: false };
 
@@ -31,18 +35,17 @@ function zapas(seed, levely) {
     const s = state.hra;
     const hodilSe = !s.hozeno;
 
-    // Postup se měří na čítačích, které jdou jen nahoru. Otisk pozic by
-    // nestačil: „hodil jsem a nemám tah“ pozicemi nehne, a přesto se
-    // partie posunula (ubyl pokus). Na tohle můj test napoprvé naletěl
-    // a hlásil zaseknutí u všech čtyřiceti zápasů.
-    const pred = s.hodu + s.tahu;
+    // Postup se měří na čítači akcí. Pozice nestačí („hodil jsem a nemám
+    // tah“ jimi nehne) a hody+tahy taky ne – sniper a nepovedený zásah
+    // mění stav, aniž by jimi hnuly. Na obojí můj test naletěl.
+    const pred = s.akci;
 
     hra.zahrajZa(state, ctx, null);
     st.kroku++;
     if (hodilSe) st.hodu++;
     if (state.hra.posledni && state.hra.posledni !== s.posledni && state.hra.posledni.vyhodil) st.vyhozeni++;
 
-    if (state.hra.hodu + state.hra.tahu === pred) { st.zaseknuto = true; break; }
+    if (state.hra.akci === pred) { st.zaseknuto = true; break; }
   }
 
   const konec = hra.result(state);
@@ -258,6 +261,231 @@ function zapas(seed, levely) {
   v.poz[1][0] = 2;   // hráč 1 má rameno 1 → jiné absolutní pole, tak ho spočítáme
   const cil = tahy(v, 0, 3).find(x => x.fig === 0);
   zkus('tah na volné pole nikoho nevyhazuje', cil && !cil.vyhodi, 'ok');
+}
+
+// ── 7. Módy: dohraje se s každým z nich? ───────────────────
+// Hrubý test: žádný mód nesmí partii zaseknout.
+{
+  const kombinace = [
+    ...MODY.map(m => ({ nazev: m.nazev, mody: { [m.id]: true } })),
+    { nazev: 'všechny naráz', mody: Object.fromEntries(MODY.map(m => [m.id, true])) },
+  ];
+  for (const k of kombinace) {
+    let hotovo = 0, zaseknuto = 0;
+    const hody = [];
+    for (let i = 0; i < 12; i++) {
+      const r = zapas(4000 + i * 6091, ['normal', 'normal', 'normal'], k.mody);
+      if (r.dokonceno) hotovo++;
+      if (r.zaseknuto) zaseknuto++;
+      hody.push(r.hodu);
+    }
+    const med = [...hody].sort((a, b) => a - b)[6];
+    zkus(`dohraje se: ${k.nazev}`, hotovo === 12 && zaseknuto === 0,
+      `${hotovo}/12 dohráno, ${zaseknuto} zaseknutých, medián ${med} hodů`);
+  }
+}
+
+// ── 8. Žába ─────────────────────────────────────────
+{
+  const t = novaHra('mala', 2, 4, { zaba: true });
+  t.poz[0][0] = 9;                 // ť nepřekáží
+  t.poz[0][1] = 0;                 // táhne z kroku 0
+  t.poz[1][0] = 31;                // rameno 1 začíná na poli 10, krok 31 = pole 1
+
+  const cst = cesta(t, 0, 0, 3);
+  zkus('cesta z 0 na 3 vede přes pole 1 a 2', cst.length === 2 && cst[0] === 1 && cst[1] === 2, cst.join(','));
+
+  const sZabou = tahy(t, 0, 3);
+  const bezZaby = tahy({ ...t, mody: { ...t.mody, zaba: false } }, 0, 3);
+  zkus('žába omezí výběr jen na přeskoky',
+    sZabou.length < bezZaby.length && sZabou.every(x => x.preskoci > 0),
+    `${bezZaby.length} → ${sZabou.length} tahů`);
+  zkus('žába o omezení řekne', zabaOmezuje(t, 0, 3) === true, 'hlásí omezení');
+
+  const po = hod(t, 3);
+  zkus('hláška se dostane do stavu', po.hlaska?.mod === 'zaba', po.hlaska?.text || 'žádná');
+
+  // Bez soupeře v cestě žába nic neomezuje.
+  const u = novaHra('mala', 2, 4, { zaba: true });
+  u.poz[0][0] = 5;
+  zkus('bez koho přeskakovat žába neomezuje', zabaOmezuje(u, 0, 3) === false, 'nic nevnucuje');
+}
+
+// ── 8b. Žába + Boomerang se nepletou ────────────────────
+// Nezávislost je ve spouštěči: couvnutí žábu nespustí. Když se ale
+// spustí přeskokem dopředu, je to donucení a couvat už nejde.
+{
+  const t = novaHra('mala', 2, 4, { zaba: true, boomerang: true });
+  t.poz[0][0] = 9;
+  t.poz[0][1] = 0;
+  t.poz[1][0] = 31;                 // rameno 2 (start 20) → krok 31 = pole 11? ne, dopočítáme níže
+
+  // Soupeře postavíme přesně na moje pole 1 a 2, ať je koho přeskakovat.
+  const O = okruh(MAPA_PODLE.mala);
+  t.poz[1][0] = (1 - 20 + O) % O;   // moje pole 1
+  const tahyS = tahy(t, 0, 3);
+
+  zkus('žába nutí jen dopředu',
+    tahyS.some(x => !x.couv && x.preskoci > 0), 'přeskok dopředu je mezi možnostmi');
+  zkus('vnucený přeskok zablokuje i couvání',
+    !tahyS.some(x => x.couv), `couvacích tahů: ${tahyS.filter(x => x.couv).length}`);
+  zkus('žádný vnucený tah není couvnutí',
+    tahyS.filter(x => x.preskoci > 0 && !x.couv).length > 0, 'compulsion míří dopředu');
+
+  // Přeskok pozpátku sám o sobě žábu nespouští.
+  const u = novaHra('mala', 2, 4, { zaba: true, boomerang: true });
+  u.poz[0][0] = 5;
+  u.poz[1][0] = (4 - 20 + O) % O;   // soupeř na mém poli 4, tedy za mnou
+  zkus('přeskok pozpátku žábu nespouští', zabaOmezuje(u, 0, 2) === false, 'nic nevnucuje');
+}
+
+// ── 9. Double trouble ───────────────────────────────
+{
+  const rng = makeRng(2468);
+  const players = Array.from({ length: 2 }, (_, i) => ({ uid: 'P' + i, name: 'H' + i, bot: true, botLevel: 'normal' }));
+  const ctx = { rng, players, reject: () => {}, emit: () => {} };
+  const state = hra.createState({ players, rng, options: { mapa: 'mala', double: true } });
+
+  const videno = new Set();
+  let paru = 0, sedi = 0;
+  for (let i = 0; i < 900 && !hra.result(state); i++) {
+    if (!state.hra.hozeno && !state.hra.sniper) {
+      hra.hodit(state, ctx);
+      const k = state.hra.kostky, v = state.hra.kostka;
+      if (k && v) { paru++; videno.add(v); if (v === k[0] + k[1]) sedi++; }
+    } else hra.zahrajZa(state, ctx, 'normal');
+  }
+  const vs = [...videno];
+  zkus('součet vždy sedí s dvojicí kostek', paru > 20 && sedi === paru, `${sedi}/${paru} hodů`);
+  zkus('padají jen součty 2–12', vs.length > 0 && Math.min(...vs) >= 2 && Math.max(...vs) <= 12,
+    `viděno ${Math.min(...vs)}–${Math.max(...vs)}`);
+
+  // Důsledek, na který uživatel sám upozornil: minimální součet je 2,
+  // takže figurka, které do volného políčka chybí právě jedna, se už nehne.
+  const O2 = okruh(MAPA_PODLE.mala);
+  const s2 = novaHra('mala', 2, 4, { double: true });
+  s2.poz[0][0] = O2 + 2;               // předposlední políčko cíle
+  const zadny = [2,3,4,5,6,7,8,9,10,11,12].every(k => !tahy(s2, 0, k).some(x => x.fig === 0));
+  zkus('předposlední pole cíle je s dvojkostkou koncová', zadny, 'na poslední by byla potřeba jednička');
+}
+
+// ── 10. Boomerang ──────────────────────────────────
+{
+  const s = novaHra('mala', 2, 4, { boomerang: true });
+  s.poz[0][0] = 10;
+  for (const k of [1, 2, 3]) {
+    const couvy = tahy(s, 0, k).filter(x => x.couv);
+    zkus(`boomerang couvá za ${k}`, couvy.length === 1 && couvy[0].na === 10 - k, `10 → ${couvy[0] ? couvy[0].na : '–'}`);
+  }
+  zkus('od čtyřky výš se couvat nesmí',
+    [4, 5, 6].every(k => tahy(s, 0, k).every(x => !x.couv)), 'jen dopředu');
+
+  const u = novaHra('mala', 2, 4, { boomerang: true });
+  u.poz[0][0] = 2;
+  zkus('couvnutí za vlastní start není', tahy(u, 0, 3).every(x => !x.couv), 'krok 2 mínus 3 neplatí');
+
+  const v = novaHra('mala', 2, 4, {});
+  v.poz[0][0] = 10;
+  zkus('bez boomerangu se necouvá', tahy(v, 0, 2).every(x => !x.couv), 'vypnuto');
+}
+
+// ── 11. Sniper ────────────────────────────────────
+{
+  const O = okruh(MAPA_PODLE.mala);
+  const s = novaHra('mala', 3, 4, { sniper: true });
+  s.poz[0][0] = O - 1;          // krok před domečkem
+  s.poz[1][0] = 5;              // soupeř na dráze
+  s.poz[2][0] = O + 1;          // soupeř už v cíli
+  s.hozeno = true; s.kostka = 2;
+
+  const po = tah(s, 0, 1);
+  zkus('vstup do domečku spustí sniper', !!po.sniper, po.sniper ? 'čeká na výběr' : 'nespustil');
+  const cile = sniperCile(po);
+  zkus('sniper míří jen na dráhu', cile.length === 1 && cile[0].hrac === 1 && cile[0].fig === 0,
+    `${cile.length} cílů`);
+
+  const po2 = snipe(po, 1, 0);
+  zkus('sniper vyhodí vybranou figurku', po2.poz[1][0] === -1 && !po2.sniper, `pozice ${po2.poz[1][0]}`);
+  zkus('na figurku v cíli sniper nedosáhne', snipe(po, 2, 0).poz[2][0] === O + 1, 'zůstala v cíli');
+
+  const u = novaHra('mala', 2, 4, { sniper: true });
+  u.poz[0][0] = O;              // už v cíli
+  u.poz[1][0] = 5;
+  u.hozeno = true; u.kostka = 1;
+  zkus('posun uvnitř domečku sniper nespustí', !tah(u, 0, 1).sniper, 'nespustil');
+}
+
+// ── 12. Sacrifice ─────────────────────────────────
+{
+  const s = novaHra('mala', 2, 4, { sacrifice: true });
+  s.poz[0][0] = 3; s.poz[0][1] = 7;
+  s.poz[1][0] = 12;
+
+  zkus('obětovat jde', lzeObetovat(s) === true, 'dvě moje na dráze a je koho sundat');
+  const po = obetuj(s, 0, 1, 1, 0);
+  zkus('obětované jdou domů', po.poz[0][0] === -1 && po.poz[0][1] === -1, `${po.poz[0][0]}, ${po.poz[0][1]}`);
+  zkus('soupeřova jde také domů', po.poz[1][0] === -1, String(po.poz[1][0]));
+  zkus('tah tím končí', po.naTahu === 1, `na tahu ${po.naTahu}`);
+  zkus('o oběti se napíše', po.hlaska?.mod === 'sacrifice', po.hlaska?.text || 'nic');
+
+  const u = novaHra('mala', 2, 4, { sacrifice: true });
+  u.poz[0][0] = 3; u.poz[0][1] = 7;
+  zkus('na figurky v domečku obětovat nejde', lzeObetovat(u) === false, 'není koho sundat');
+
+  const v = novaHra('mala', 2, 4, { sacrifice: true });
+  v.poz[0][0] = 3; v.poz[1][0] = 12;
+  zkus('jedna vlastní nestačí', lzeObetovat(v) === false, 'potřeba dvě');
+
+  const w = novaHra('mala', 2, 4, {});
+  w.poz[0][0] = 3; w.poz[0][1] = 7; w.poz[1][0] = 12;
+  zkus('bez módu obětovat nejde', lzeObetovat(w) === false, 'vypnuto');
+}
+
+// ── 13. Lovec odměn ──────────────────────────────
+{
+  // Soupeř (rameno 1, start pole 10) stojí na mém poli 5 → jeho krok 35.
+  const s = novaHra('mala', 2, 4, { lovec: true });
+  s.poz[0][0] = 3;
+  s.poz[1][0] = 25;   // rameno 2 začíná na poli 20, krok 25 = pole 5
+  s.hozeno = true; s.kostka = 2;
+  const po = tah(s, 0, 0);
+  zkus('vyhození proběhlo', po.poz[1][0] === -1, `soupeř na ${po.poz[1][0]}`);
+  zkus('lovec nasadí figurku na start', po.poz[0].includes(0), JSON.stringify(po.poz[0]));
+  zkus('lovec o tom řekne', po.hlaska?.mod === 'lovec', po.hlaska?.text || 'nic');
+
+  const u = novaHra('mala', 2, 4, { lovec: true });
+  u.poz[0][0] = 3; u.poz[0][1] = 0;
+  u.poz[1][0] = 25;
+  u.hozeno = true; u.kostka = 2;
+  const po2 = tah(u, 0, 0);
+  zkus('lovec posune figurku ze startu', po2.poz[0][1] === 1, `ze startu na ${po2.poz[0][1]}`);
+
+  const v = novaHra('mala', 2, 4, {});
+  v.poz[0][0] = 3; v.poz[1][0] = 25;
+  v.hozeno = true; v.kostka = 2;
+  zkus('bez módu žádná odměna', tah(v, 0, 0).poz[0].filter(k => k === 0).length === 0, 'vypnuto');
+}
+
+// ── 14. Nervy ─────────────────────────────────────
+{
+  const s = novaHra('mala', 2, 4, { nervy: true });
+  s.poz[0][0] = 3;
+  s.poz[1][0] = 25;
+  s.hozeno = true; s.kostka = 2;
+
+  const selhalo = tah(s, 0, 0.0);
+  zkus('nervy zkazí vyhození', selhalo.poz[0][0] === 3 && selhalo.poz[1][0] === 25,
+    'figurka stojí, soupeř taky');
+  zkus('a tah propadá', selhalo.naTahu === 1, `na tahu ${selhalo.naTahu}`);
+  zkus('nervy o tom řeknou', selhalo.hlaska?.mod === 'nervy', selhalo.hlaska?.text || 'nic');
+
+  const povedlo = tah(s, 0, 0.99);
+  zkus('nad prahem vyhození projde', povedlo.poz[1][0] === -1, `soupeř na ${povedlo.poz[1][0]}`);
+
+  const u = novaHra('mala', 2, 4, { nervy: true });
+  u.poz[0][0] = 3;
+  u.hozeno = true; u.kostka = 2;
+  zkus('bez vyhození nervy nic nezkazí', tah(u, 0, 0.0).poz[0][0] === 5, 'tah proběhl');
 }
 
 // ── Výpis ────────────────────────────────────────────────────

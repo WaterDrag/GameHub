@@ -14,7 +14,9 @@
 // ─────────────────────────────────────────────────────────────
 import {
   novaHra, tahy, hod, tah, maxPokusu, hotovych, poradi,
+  snipe, sniperCile, obetuj, lzeObetovat, obetovatelne,
 } from '../../shared/games/clovece/pravidla.js';
+import { MODY, NERVY_SANCE } from '../../shared/games/clovece/mody.js';
 import {
   MAPY, MAPA_PODLE, VYCHOZI_MAPA, mapaNebo,
   FIGUREK_MIN, FIGUREK_MAX, okruh, naOkruhu, barvaRamene,
@@ -127,6 +129,8 @@ export default {
       // který se v lobby přepočítá podle skutečného počtu hráčů.
       volby: [4, 3, 2, 1].map(n => ({ v: n, label: `${n}`, desc: null })),
     },
+    // Módy jsou obyčejná zaškrtávátka a dají se kombinovat.
+    ...MODY.map(m => ({ key: m.id, label: m.nazev, emoji: m.emoji, desc: m.popis, def: false })),
   ],
 
   // Hub se ptá, jestli volby sedí k počtu hráčů. Pravidlo zná hra, ne hub:
@@ -165,7 +169,8 @@ export default {
     const seats = rng.shuffle(players.map(p => p.uid));
     // Pojistka: kdyby se do místnosti někdo vešel až po výběru desky.
     const { options: opt } = this.normalizeOptions(options || {}, seats.length);
-    const hra = novaHra(opt.mapa, seats.length, opt.figurek, rng.int(0, seats.length - 1));
+    const mody = Object.fromEntries(MODY.map(m => [m.id, !!opt[m.id]]));
+    const hra = novaHra(opt.mapa, seats.length, opt.figurek, mody, rng.int(0, seats.length - 1));
 
     const state = {
       hra,
@@ -202,7 +207,12 @@ export default {
     const hrac = ctx?.players?.find(p => p.uid === state.seats[s.naTahu]);
     const bot = !!(hrac?.bot || hrac?.botControlled);
 
-    if (s.hozeno) {
+    if (s.sniper) {
+      // Když je na mušce jediná figurka, není co vybírat.
+      if (sniperCile(s).length <= 1) state.autoAt = now + AUTO_MS;
+      else if (bot) state.botAt = now + BOT_TAH_MS;
+      state.deadline = now + TAH_MS;
+    } else if (s.hozeno) {
       // Jediná možnost se nevybírá – zahraje se sama.
       if (tahy(s).length <= 1) state.autoAt = now + AUTO_MS;
       else if (bot) state.botAt = now + BOT_TAH_MS;
@@ -225,20 +235,61 @@ export default {
     }
 
     if (msg.a === 'tah') {
+      if (s.sniper) return ctx.reject(player, 'Nejdřív vyber, koho sundáš.');
       if (!s.hozeno) return ctx.reject(player, 'Nejdřív hoď kostkou.');
       const fig = msg.fig | 0;
       if (!tahy(s).some(t => t.fig === fig)) return ctx.reject(player, 'Touhle figurkou to nejde.');
       return this.tahnout(state, fig, ctx);
     }
+
+    if (msg.a === 'snipe') {
+      if (!s.sniper) return ctx.reject(player, 'Teď se nestřílí.');
+      return this.sniprout(state, msg.hrac | 0, msg.fig | 0, ctx);
+    }
+
+    if (msg.a === 'obetuj') {
+      if (!lzeObetovat(s)) return ctx.reject(player, 'Obětovat teď nejde.');
+      return this.obetovat(state, msg.a1 | 0, msg.a2 | 0, msg.hrac | 0, msg.fig | 0, ctx);
+    }
+  },
+
+  sniprout(state, cilHrac, cilFig, ctx) {
+    const s = state.hra;
+    const kdo = this.jmeno(ctx, state.seats[s.naTahu]);
+    const obet = this.jmeno(ctx, state.seats[cilHrac]);
+    const pred = s.poz[cilHrac][cilFig];
+    state.hra = snipe(s, cilHrac, cilFig);
+    if (state.hra.poz[cilHrac][cilFig] === pred) return;   // neplatný cíl
+    this.zapis(state, `🎯 ${kdo} sniperem sundal ${obet}.`);
+    ctx.emit('vyhozeni', { kdo: s.naTahu, komu: cilHrac });
+    this.prepocti(state, ctx);
+  },
+
+  obetovat(state, a1, a2, cilHrac, cilFig, ctx) {
+    const s = state.hra;
+    const kdo = this.jmeno(ctx, state.seats[s.naTahu]);
+    const obet = this.jmeno(ctx, state.seats[cilHrac]);
+    state.hra = obetuj(s, a1, a2, cilHrac, cilFig);
+    if (state.hra.tahu === s.tahu) return;                 // neprošlo
+    this.zapis(state, `⚔️ ${kdo} obětoval dvě figurky a sundal ${obet}.`);
+    ctx.emit('vyhozeni', { kdo: s.naTahu, komu: cilHrac });
+    this.prepocti(state, ctx);
   },
 
   hodit(state, ctx) {
     const s = state.hra;
     const kdo = this.jmeno(ctx, state.seats[s.naTahu]);
-    const kostka = ctx.rng.int(1, 6);
     const predtim = s.naTahu;
 
-    state.hra = hod(s, kostka);
+    // Double trouble: dvě kostky a platí jejich součet. Minimum je tím
+    // pádem 2 – o jedno pole se posunout nedá, což hlídá pravidlo
+    // o přesném doskoku do cíle.
+    const dve = s.mody.double;
+    const a = ctx.rng.int(1, 6);
+    const b = dve ? ctx.rng.int(1, 6) : 0;
+    const kostka = dve ? a + b : a;
+
+    state.hra = hod(s, kostka, dve ? [a, b] : null);
     const n = state.hra;
 
     if (n.hozeno) {
@@ -250,7 +301,8 @@ export default {
       this.zapis(state, `${kdo} hodil ${kostka} – nemá tah, zbývá ${p} ${p === 1 ? 'pokus' : 'pokusy'}.`);
     }
 
-    ctx.emit('kostka', { seat: predtim, hodnota: kostka });
+    if (n.hlaska) this.zapis(state, n.hlaska.text);
+    ctx.emit('kostka', { seat: predtim, hodnota: kostka, kostky: dve ? [a, b] : null });
     this.prepocti(state, ctx);
   },
 
@@ -260,8 +312,14 @@ export default {
     const t = tahy(s).find(x => x.fig === fig);
     const sest = s.kostka === 6;
 
-    state.hra = tah(s, fig);
+    // Náhodu pro Nervy losuje server, aby si ji klient nemohl vybrat.
+    state.hra = tah(s, fig, ctx.rng());
     const n = state.hra;
+
+    // Hlášku módu píšeme vždycky – hráč musí vědět, proč se stalo,
+    // co se stalo.
+    if (n.hlaska) this.zapis(state, `${kdo}: ${n.hlaska.text}`);
+    if (n.hlaska?.mod === 'nervy') { ctx.emit('nervy', { seat: s.naTahu }); this.prepocti(state, ctx); return; }
 
     if (t?.vyhodi) {
       const obet = this.jmeno(ctx, state.seats[t.vyhodi.hrac]);
@@ -292,12 +350,18 @@ export default {
     if (!state.autoAt && !state.botAt) {
       const kdo = ctx?.players?.find(p => p.uid === state.seats[s.naTahu]);
       if (kdo?.bot || kdo?.botControlled) {
-        state.botAt = now + (s.hozeno ? BOT_TAH_MS : BOT_HOD_MS);
+        state.botAt = now + (s.hozeno || s.sniper ? BOT_TAH_MS : BOT_HOD_MS);
       }
     }
 
     // Jediná možnost – zahraje se sama, ať už za člověka nebo za bota.
     if (state.autoAt && now >= state.autoAt) {
+      if (s.sniper) {
+        const c = sniperCile(s);
+        if (c.length === 1) return this.sniprout(state, c[0].hrac, c[0].fig, ctx);
+        state.autoAt = 0;
+        return;
+      }
       const t = tahy(s);
       if (t.length === 1) return this.tahnout(state, t[0].fig, ctx);
       // Kostka padla, ale není čím táhnout – tenhle stav pravidla neumí
@@ -319,6 +383,17 @@ export default {
     const s = state.hra;
     const hrac = ctx.players?.find(p => p.uid === state.seats[s.naTahu]);
     const level = vnuceny || hrac?.botLevel || 'normal';
+
+    if (s.sniper) {
+      // Sundá se ten, kdo je nejdál – tam je ztráta největší.
+      const c = sniperCile(s);
+      if (!c.length) { state.botAt = 0; return; }
+      let nej = c[0];
+      for (const x of c) if (s.poz[x.hrac][x.fig] > s.poz[nej.hrac][nej.fig]) nej = x;
+      const vyber = level === 'easy' ? ctx.rng.pick(c) : nej;
+      return this.sniprout(state, vyber.hrac, vyber.fig, ctx);
+    }
+
     if (!s.hozeno) return this.hodit(state, ctx);
     const t = vyberTah(s, level, ctx.rng);
     if (!t) { state.botAt = 0; return; }
@@ -350,6 +425,14 @@ export default {
       poz: s.poz,
       naTahu: s.naTahu,
       kostka: s.kostka,
+      kostky: s.kostky,
+      mody: s.mody,
+      hlaska: s.hlaska,
+      sniper: s.sniper,
+      sniperCile: s.sniper ? sniperCile(s) : [],
+      muzeObetovat: myTurn && lzeObetovat(s),
+      obetovatelne: myTurn ? obetovatelne(s) : [],
+      obetiCile: myTurn && lzeObetovat(s) ? sniperCile(s, seat) : [],
       hozeno: s.hozeno,
       pokusy: s.pokusy ?? maxPokusu(s),
       maxPokusu: maxPokusu(s),
@@ -358,7 +441,7 @@ export default {
       seats: state.seats,
       mySeat: seat,
       myTurn,
-      tahy: myTurn && s.hozeno ? tahy(s) : [],
+      tahy: myTurn && s.hozeno && !s.sniper ? tahy(s) : [],
       hotovo: Array.from({ length: s.hracu }, (_, h) => hotovych(s, h)),
       autoZa: state.autoAt ? Math.max(0, state.autoAt - now) : 0,
       casLeft: state.deadline ? Math.max(0, state.deadline - now) : 0,

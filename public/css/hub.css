@@ -1330,9 +1330,17 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .cl-log{font-size:.74rem; color:var(--tx3); text-align:center; min-height:1em; max-width:600px}
 
 .cl-akce{display:flex; align-items:center; gap:12px}
-.cl-kostka{
+.cl-kostky{
+  display:flex; align-items:center; gap:6px; flex-shrink:0;
+}
+.cl-kostky .cl-kmrizka{
   width:44px; height:44px; border-radius:10px; background:#fff; padding:5px;
   box-shadow:0 3px 10px rgba(0,0,0,.4); flex-shrink:0;
+}
+.cl-kostky.dve .cl-kmrizka{width:36px; height:36px; padding:4px}
+.cl-kostky.dve .cl-kmrizka i{width:6px; height:6px}
+.cl-soucet{
+  font-family:var(--font-display); font-size:.95rem; font-weight:700; color:var(--acc2);
 }
 /* Letící kostka. Sedí v .cl (position:absolute), takže ji překreslení
    panelu nemůže přerušit – hýbe s ní Web Animations API. */
@@ -1344,7 +1352,8 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 }
 .cl-let .cl-kmrizka i{width:10px; height:10px}
 @media (prefers-reduced-motion:reduce){ .cl-let{display:none !important} }
-.cl-kmrizka{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); width:100%; height:100%}
+.cl-kmrizka{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr)}
+.cl-let .cl-kmrizka{width:100%; height:100%}
 .cl-kmrizka i{width:7px; height:7px; border-radius:50%; background:#15151f; justify-self:center; align-self:center}
 .cl-kmrizka i.prazdno{background:transparent}
 .cl-hod{
@@ -1375,3 +1384,43 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   .cl-jmeno{font-size:.62rem; max-width:70px}
   .cl-hod{min-width:104px}
 }
+
+
+/* ── Člověče: herní módy ────────────────────────────────────
+   Každý mód, který hráči něco vnutí nebo vezme, o sobě dá vědět.
+   Bez hlášky to vypadá jako chyba hry. */
+.cl-hlaska{
+  font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:99px; text-align:center;
+  background:color-mix(in srgb,var(--acc) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--acc) 42%,transparent);
+  color:var(--acc2); max-width:640px;
+}
+.cl-hlaska.mod-zaba{background:color-mix(in srgb,var(--ok) 16%,transparent); border-color:color-mix(in srgb,var(--ok) 42%,transparent); color:var(--ok)}
+.cl-hlaska.mod-nervy{background:color-mix(in srgb,var(--bad) 16%,transparent); border-color:color-mix(in srgb,var(--bad) 42%,transparent); color:var(--bad)}
+.cl-hlaska.mod-sniper{background:color-mix(in srgb,var(--warn) 16%,transparent); border-color:color-mix(in srgb,var(--warn) 42%,transparent); color:var(--warn)}
+.cl-hlaska.mod-lovec,.cl-hlaska.mod-sacrifice{background:color-mix(in srgb,var(--warn) 14%,transparent); border-color:color-mix(in srgb,var(--warn) 36%,transparent); color:var(--warn)}
+
+.cl-obet{
+  height:42px; padding:0 16px; border-radius:11px; cursor:pointer;
+  background:color-mix(in srgb,var(--bad) 18%,var(--surface));
+  border:1px solid var(--bad); color:var(--tx);
+  font-family:var(--font-display); font-size:.82rem; letter-spacing:.06em;
+  transition:transform .15s, box-shadow .15s;
+}
+.cl-obet:hover{transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.35)}
+
+/* Figurka na mušce (sniper i druhá půlka Sacrifice) a vybraná k oběti. */
+.cl-fig.namusce{cursor:crosshair}
+.cl-fig.namusce .cl-figv circle:nth-child(2){stroke:var(--bad); stroke-opacity:1; stroke-width:3}
+.cl-fig.namusce .cl-figv{animation:clPuls .7s ease-in-out infinite}
+.cl-fig.kobeti{cursor:pointer}
+.cl-fig.kobeti .cl-figv circle:nth-child(2){stroke:var(--warn); stroke-opacity:1; stroke-width:2.6}
+.cl-fig.vybrana .cl-figv circle:nth-child(2){stroke:var(--warn); stroke-opacity:1; stroke-width:4}
+.cl-fig.vybrana .cl-figv{opacity:.55}
+@keyframes clPuls{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.15)}
+}
+
+/* Couvací tah v řadě čísel dole. */
+.cl-figbtn.couv::before{content:'\2190'; font-size:.7rem; vertical-align:super; opacity:.85}

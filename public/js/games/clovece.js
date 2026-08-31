@@ -50,20 +50,23 @@ export default {
       <div class="cl-hraci" id="clHraci"></div>
       <div class="cl-deskawrap"><svg class="cl-svg" id="clSvg"></svg></div>
       <div class="cl-panel">
+        <div class="cl-hlaska hidden" id="clHlaska"></div>
         <div class="cl-stav">
           <b id="clStav">…</b>
           <span class="cl-pokusy" id="clPokusy"></span>
         </div>
         <div class="cl-log" id="clLog"></div>
         <div class="cl-akce">
-          <div class="cl-kostka" id="clKostka"><div class="cl-kmrizka"></div></div>
+          <div class="cl-kostky" id="clKostka"><div class="cl-kmrizka"></div></div>
           <button class="cl-hod" id="clHod" type="button">HODIT</button>
+          <button class="cl-obet hidden" id="clObet" type="button">⚔️ Obětovat</button>
         </div>
         <div class="cl-figurky" id="clFigurky"></div>
       </div>
       <div class="cl-let" id="clLet"><div class="cl-kmrizka"></div></div>`;
 
     this.root.querySelector('#clHod').onclick = () => this.hod();
+    this.root.querySelector('#clObet').onclick = () => this.zacniObet();
 
     this.postavDesku(ctx.view);
     this.render(ctx.view);
@@ -166,7 +169,7 @@ export default {
         cislo.textContent = String(f + 1);
         vnitrek.append(telo, lesk, cislo);
         skup.append(vnitrek);
-        skup.addEventListener('click', () => this.tah(h, f));
+        skup.addEventListener('click', () => this.klikFigurka(h, f));
         vrstvaFig.append(skup);
         rada.push(skup);
       }
@@ -190,12 +193,56 @@ export default {
     this.ctx.send('action', { a: 'hod' });
   },
 
-  tah(hrac, fig) {
+  // Jeden klik na figurku obslouží tři různé věci podle toho, v jaké
+  // fázi jsme: běžný tah, výběr oběti sniperu a výběr při Sacrifice.
+  klikFigurka(hrac, fig) {
     const v = this.view;
-    if (!v?.myTurn || !v.hozeno) return;
+    if (!v) return;
+
+    if (v.sniper && v.sniper.hrac === v.mySeat) {
+      if (!(v.sniperCile || []).some(c => c.hrac === hrac && c.fig === fig)) return;
+      return this.ctx.send('action', { a: 'snipe', hrac, fig });
+    }
+
+    if (this.obet) return this.obetKlik(hrac, fig);
+
+    if (!v.myTurn || !v.hozeno) return;
     if (hrac !== v.mySeat) return;
     if (!(v.tahy || []).some(t => t.fig === fig)) return;
     this.ctx.send('action', { a: 'tah', fig });
+  },
+
+  tah(hrac, fig) { this.klikFigurka(hrac, fig); },
+
+  // ── Sacrifice: dvě svoje, pak jedna soupeřova ──────────────
+  zacniObet() {
+    if (!this.view?.muzeObetovat) return;
+    this.obet = { moje: [] };
+    this.render(this.view);
+  },
+
+  zrusObet() {
+    this.obet = null;
+    if (this.view) this.render(this.view);
+  },
+
+  obetKlik(hrac, fig) {
+    const v = this.view;
+    if (!this.obet) return;
+
+    if (this.obet.moje.length < 2) {
+      if (hrac !== v.mySeat) return;
+      if (!(v.obetovatelne || []).includes(fig)) return;
+      if (this.obet.moje.includes(fig)) this.obet.moje = this.obet.moje.filter(x => x !== fig);
+      else this.obet.moje.push(fig);
+      return this.render(v);
+    }
+
+    if (!(v.obetiCile || []).some(c => c.hrac === hrac && c.fig === fig)) return;
+    this.ctx.send('action', {
+      a: 'obetuj', a1: this.obet.moje[0], a2: this.obet.moje[1], hrac, fig,
+    });
+    this.obet = null;
   },
 
   update(view) {
@@ -217,6 +264,7 @@ export default {
     // po dobu výběru figurky – když hod nic neumožní, server ji hned
     // nuluje a hráč by se nikdy nedozvěděl, co vlastně hodil.
     this.posledniHod = m.hodnota;
+    this.posledniPar = m.kostky || null;
     this.hodKostkou(m.hodnota, m.seat);
   },
 
@@ -240,7 +288,7 @@ export default {
     // tam neběží requestAnimationFrame, takže by kostka visela ve vzduchu.
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       || document.visibilityState === 'hidden') {
-      this.kresliKostku(hodnota);
+      this.kresliKostku(hodnota, this.view?.kostky);
       return;
     }
 
@@ -250,7 +298,7 @@ export default {
     const a = (zdroj || this.root.querySelector('#clHod')).getBoundingClientRect();
     const b = svg.getBoundingClientRect();
     const r = this.root.getBoundingClientRect();
-    if (!a.width || !b.width) { this.kresliKostku(hodnota); return; }
+    if (!a.width || !b.width) { this.kresliKostku(hodnota, this.view?.kostky); return; }
 
     const V = 58;
     const x0 = a.left + a.width / 2 - r.left - V / 2;
@@ -295,7 +343,7 @@ export default {
     const letec = this.root?.querySelector('#clLet');
     if (!letec) return;
     this.puntiky(letec.querySelector('.cl-kmrizka'), hodnota);
-    this.kresliKostku(hodnota);
+    this.kresliKostku(hodnota, this.view?.kostky);
 
     // Chvíli podržet, ať je hodnota čitelná, a zmizet.
     this._mizi = setTimeout(() => {
@@ -331,8 +379,39 @@ export default {
     }
   },
 
-  kresliKostku(n) {
-    this.puntiky(this.root?.querySelector('#clKostka .cl-kmrizka'), n);
+  // Panel umí jednu kostku i dvojici (Double trouble). U dvojice se
+  // pod ně připíše součet – na jedné stěně se dvěnáctka nezobrazí.
+  kresliKostku(n, kostky = null) {
+    const box = this.root?.querySelector('#clKostka');
+    if (!box) return;
+    const par = kostky && kostky.length === 2;
+    const chce = par ? 2 : 1;
+    let mrizky = [...box.querySelectorAll('.cl-kmrizka')];
+    while (mrizky.length < chce) {
+      const d = document.createElement('div');
+      d.className = 'cl-kmrizka';
+      box.insertBefore(d, box.querySelector('.cl-soucet'));
+      mrizky.push(d);
+    }
+    while (mrizky.length > chce) mrizky.pop().remove();
+
+    if (par) {
+      this.puntiky(mrizky[0], kostky[0]);
+      this.puntiky(mrizky[1], kostky[1]);
+    } else {
+      this.puntiky(mrizky[0], n);
+    }
+
+    let soucet = box.querySelector('.cl-soucet');
+    if (par && n) {
+      if (!soucet) {
+        soucet = document.createElement('span');
+        soucet.className = 'cl-soucet';
+        box.append(soucet);
+      }
+      soucet.textContent = `= ${n}`;
+    } else if (soucet) soucet.remove();
+    box.classList.toggle('dve', !!par);
   },
 
   // ── Vykreslení ─────────────────────────────────────────────
@@ -342,6 +421,20 @@ export default {
     const moje = new Set((v.tahy || []).map(t => t.fig));
     const cile = new Set((v.tahy || []).map(t => t.na));
 
+    // Kdo je zrovna na výčepě: sniper míří na soupeře, Sacrifice
+    // nejdřív na dvě moje a pak taky na soupeře.
+    const jaSniper = v.sniper && v.sniper.hrac === v.mySeat;
+    const naMusce = new Set();
+    if (jaSniper) for (const c of v.sniperCile || []) naMusce.add(`${c.hrac}:${c.fig}`);
+    else if (this.obet && this.obet.moje.length >= 2) {
+      for (const c of v.obetiCile || []) naMusce.add(`${c.hrac}:${c.fig}`);
+    }
+    const kObeti = new Set();
+    if (this.obet && this.obet.moje.length < 2) {
+      for (const f of v.obetovatelne || []) kObeti.add(`${v.mySeat}:${f}`);
+    }
+    const vybrane = new Set((this.obet?.moje || []).map(f => `${v.mySeat}:${f}`));
+
     // Figurky
     for (let h = 0; h < v.hracu; h++) {
       for (let f = 0; f < v.figurek; f++) {
@@ -349,8 +442,12 @@ export default {
         const skup = this.figPrvky[h]?.[f];
         if (!skup) continue;
         skup.setAttribute('transform', `translate(${p.x} ${p.y})`);
-        const hratelna = h === v.mySeat && moje.has(f);
+        const klic = `${h}:${f}`;
+        const hratelna = !jaSniper && !this.obet && h === v.mySeat && moje.has(f);
         skup.classList.toggle('hratelna', hratelna);
+        skup.classList.toggle('namusce', naMusce.has(klic));
+        skup.classList.toggle('kobeti', kObeti.has(klic));
+        skup.classList.toggle('vybrana', vybrane.has(klic));
         const posl = v.posledni && v.posledni.hrac === h && v.posledni.fig === f;
         skup.classList.toggle('posledni', !!posl);
       }
@@ -409,8 +506,17 @@ export default {
     const naTahu = this.ctx.players.find(x => x.uid === v.seats[v.naTahu]);
     const jenJedna = v.hozeno && (v.tahy || []).length === 1;
 
+    const jaSniper = v.sniper && v.sniper.hrac === v.mySeat;
     if (v.vitez !== null) {
       stav.textContent = 'Konec hry';
+    } else if (this.obet) {
+      stav.textContent = this.obet.moje.length < 2
+        ? `Sacrifice: vyber dvě svoje (${this.obet.moje.length}/2)`
+        : 'Sacrifice: vyber soupeřovu figurku';
+    } else if (jaSniper) {
+      stav.textContent = 'Sniper: vyber, koho sundáš';
+    } else if (v.sniper) {
+      stav.textContent = `${naTahu?.name || 'Soupeř'} míří sniperem…`;
     } else if (!v.myTurn) {
       stav.textContent = `Na tahu je ${naTahu?.name || 'soupeř'}`;
     } else if (!v.hozeno) {
@@ -420,7 +526,19 @@ export default {
     } else {
       stav.textContent = 'Vyber figurku';
     }
-    stav.classList.toggle('muj', !!v.myTurn);
+    stav.classList.toggle('muj', !!(v.myTurn || jaSniper));
+
+    // Hláška módu. Bez ní vypadá vnucený tah nebo propadlý hod jako chyba.
+    const hb = this.root.querySelector('#clHlaska');
+    if (v.hlaska?.text) {
+      hb.textContent = v.hlaska.text;
+      hb.className = `cl-hlaska mod-${v.hlaska.mod}`;
+    } else hb.className = 'cl-hlaska hidden';
+
+    const ob = this.root.querySelector('#clObet');
+    ob.classList.toggle('hidden', !v.muzeObetovat && !this.obet);
+    ob.textContent = this.obet ? '✖ Zrušit oběť' : '⚔️ Obětovat';
+    ob.onclick = () => (this.obet ? this.zrusObet() : this.zacniObet());
 
     // Tečky pokusů dávají smysl jen tam, kde jsou tři – tedy když
     // nemáš čím táhnout a čekáš na šestku.
@@ -433,11 +551,11 @@ export default {
       }
     }
 
-    btn.disabled = !v.myTurn || v.hozeno || v.vitez !== null;
+    btn.disabled = !v.myTurn || v.hozeno || v.vitez !== null || !!v.sniper || !!this.obet;
     btn.textContent = v.hozeno ? '…' : 'HODIT';
     // Dokud kostka letí, panel výsledek neprozradí – jinak by tam číslo
     // svítilo dřív, než kostka dopadne.
-    if (!this._leti) this.kresliKostku(this.posledniHod ?? v.kostka);
+    if (!this._leti) this.kresliKostku(this.posledniHod ?? v.kostka, v.kostky ?? this.posledniPar);
 
     // Čísla figurek dole. Když je možnost jedna, server ji stejně
     // za vteřinu zahraje sám, tak se nic nenabízí.
@@ -452,10 +570,10 @@ export default {
         for (const t of v.tahy) {
           const btn2 = document.createElement('button');
           btn2.type = 'button';
-          btn2.className = 'cl-figbtn' + (t.vyhodi ? ' bere' : '');
+          btn2.className = 'cl-figbtn' + (t.vyhodi ? ' bere' : '') + (t.couv ? ' couv' : '');
           btn2.style.setProperty('--c', b.barva);
           btn2.textContent = String(t.fig + 1);
-          btn2.title = t.vyhodi ? 'Vyhodí soupeře' : '';
+          btn2.title = [t.vyhodi ? 'Vyhodí soupeře' : '', t.couv ? 'Couvá zpátky' : ''].filter(Boolean).join(' · ');
           btn2.onclick = () => this.tah(v.mySeat, t.fig);
           figBox.append(btn2);
         }

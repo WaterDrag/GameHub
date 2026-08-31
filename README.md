@@ -676,6 +676,57 @@ a spočítá, kolik soupeřů na to pole dosáhne jedním hodem.
 > randomizoval. **Stejná past jako u závodů — než začnu ladit kód, ověřím
 > nejdřív harness.**
 
+### Herní módy
+
+Sedm zaškrtávátek, která jdou libovolně kombinovat. Každý mód, který hráči
+něco **vnutí nebo vezme, o sobě musí dát vědet** – jinak to vypadá jako chyba
+hry („proč nemůžu zahrát tohle?“). Hláška proto vzniká v pravidlech, ne
+v prohlíeči, a vidí ji všichni stejně.
+
+| Mód | Co dělá |
+|---|---|
+| 🐸 **Žába** | Když můžeš přeskočit cizí figurku, musíš. Jako braní v dámě. |
+| 🎲 **Double trouble** | Hází se dvěma kostkami, platí součet (2–12). |
+| 🎯 **Sniper** | Kdo vejde do domečku, sundá jednu soupeřovu figurku z dráhy. |
+| ⚔️ **Sacrifice** | Místo hodu obětuj dvě svoje figurky z dráhy za jednu soupeřovu. |
+| ↩️ **Boomerang** | Za 1 až 3 smíš couvat. Od čtyřky výš se musí dopředu. |
+| 🏹 **Lovec odměn** | Za vyhození nasadíš figurku na start; když tam už stojí tvoje, posune se o pole. |
+| 😰 **Nervy** | Vyhození se ve 30 % nepovede – figurka zůstane stát a tah propadá. |
+
+Každý mód má vlastní test a jedna kontrola pouští partie **se všemi sedmi
+naráz**. Žádná kombinace hru nezasekne:
+
+| | medián hodů na partii |
+|---|---|
+| bez módů | 434 |
+| Sniper | 408 |
+| Lovec odměn | 338 |
+| Žába | 319 |
+| Boomerang | 296 |
+| Sacrifice | 289 |
+| Nervy | 238 |
+| všechny naráz | 233 |
+
+#### Žába a Boomerang: nezávislost je ve spouštěči
+
+Když běží oba, není jasné, jestli se má „muset přeskakovat“ i pozpátku.
+Rozhodnutí: **couvnutí žábu nikdy nespustí** (směr dozadu je Boomerangova
+věc), ale když už se žába spustí přeskokem dopředu, je to donucení jako
+každé jiné – v tom tahu se couvat nesmí. Nezávislost módů je tedy v tom,
+CO mód spouští, ne v tom, co po něm zbyde na výběr.
+
+#### Dvě kostky a přesný doskok
+
+Součet má minimum 2, takže **o jedno pole se posunout nedá**. Figurka,
+které do volného políčka v cíli chybí právě jedna, už se nehne. Není to
+chyba, ale důsledek pravidla o přesném doskoku – a hlídá to test.
+
+#### Co módy nedělají
+
+Záměrně se neřetězí: Sniperův zásah není „vyhození“ pro Lovce odměn a Nervy
+na něj ani na Sacrifice neplatí. Jinak by jedna šestka spustila lavinu,
+kterou už nikdo neuhlídá.
+
 ### Volby, které se mění až v čekárně
 
 Deska se nedá vybrat při zakládání místnosti: tehdy ještě není známo, kolik
