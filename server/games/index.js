@@ -5,8 +5,9 @@ import racing from './racing.js';
 import chess from './chess.js';
 import clovece from './clovece.js';
 import uno from './uno.js';
+import katan from './katan.js';
 
-export const GAMES = Object.fromEntries([arena, racing, dostihy, chess, clovece, uno, gomoku].map(g => [g.id, g]));
+export const GAMES = Object.fromEntries([arena, racing, dostihy, chess, clovece, uno, katan, gomoku].map(g => [g.id, g]));
 
 export function gameList() {
   return Object.values(GAMES).map(g => ({

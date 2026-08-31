@@ -52,6 +52,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Šachy** – celá pravidla ověřená perftem, bot s alfa-beta | ✅ |
 | **Člověče, nezlob se** – pravidla z předlohy, deska pro 4 i pro 8 hráčů | ✅ |
 | **UNO No Mercy** – 136 karet, oficiální pravidla, tajné ruce | ✅ |
+| **Osadníci z Katanu** – celá pravidla, tajné ruce, obchod mezi hráči | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
@@ -653,6 +654,73 @@ konec (ty jsou hratelné vždycky). Barvu volí podle toho, čeho mají v ruce
 nejvíc. Slušný bot řekne UNO a chytá cizí zapomenutá, easy na obojí zapomíná.
 
 Hard vyhrává **60,3 %** partií proti easy tam, kde by náhoda dala 50 %.
+
+## Osadníci z Katanu
+
+Deska, pravidla i míchání jsou v `shared/games/katan/` a vyhodnocuje je server.
+Klient posílá jen „stavím osadu na vrcholu 17“; kam se smí stavět, mu říká
+pohled (`lzeOsada` / `lzeSilnice` / `lzeMesto`), sám si to nepočítá.
+
+### Proč to nemůže běžet v prohlížeči
+
+Předloha měla celý stav ve Firestore, takže **si kdokoliv mohl přečíst, co kdo
+drží v ruce**. U zloděje, monopolu nebo obchodu je to celá hra. Tady `view()`
+posílá každému jen jeho suroviny a jeho karty – o ostatních jde ven pouhý počet.
+Balíček rozvojových karet se neposlílá vůbec, jen kolik v něm zbývá.
+
+Druhá věc je deska. V předloze ji losoval prohlížeč, takže šlo generovat znovu,
+dokud u vlastní osady nepadla hezká šestka. Teď ji míchá server ze seedu.
+
+### Kde jsem se od předlohy odchýlil
+
+Čtyři věci předloha řešila jinak, než jak se Katan hraje:
+
+| | předloha | tady |
+|---|---|---|
+| ruce | veřejné | tajné |
+| banka | nekonečná | 19 od každé suroviny |
+| nejdelší cesta | lámala se jen vlastní stavbou | láme ji i cizí osada |
+| koupená karta | hratelná hned | až příští tah |
+
+Konečná banka má jeden nepříjemný důsledek, který stojí za zmínku: když po
+hodu vyjde víc surovin, než kolik jich v bance zbývá, **nedostane je nikdo**
+(pokud na ně nemá nárok jediný hráč). To není chyba, tak to Katan má.
+
+### Obchod mezi hráči
+
+Běží vždycky jen jedna nabídka a vidí ji všichni. Kdo ji přijme první, ten
+obchoduje – stejně jako u stolu, kde se křičí „berím“. Server před výměnou
+znovu ověří, že obě strany na to mají; mezitím totiž mohla přijít sedmička.
+
+Boti nabídku sami nevymyslí, ale umí ji posoudit – berou to, co je posune blíž
+k další stavbě, a tvrdý bot nepodrží toho, kdo má osm a víc bodů. Když nabídku
+nikdo nechce a není už kdo by ji přijal, sama padne, ať hráč nečumí na něco,
+co se nikdy nevyřeší.
+
+### Boti
+
+Rozmístění rozhoduje partii víc než cokoliv později, takže se vrcholy hodnotí
+podle teček na žetonech, různosti surovin a přístavu. Rozdíl mezi úrovněmi
+není v tom, že by easy hrál náhodně – to je poznát moc – ale **jak přesně si
+mezi dobrými místy vybírá**. K tomu tvrdý bot hraje rytíře ještě před hodem
+(zloděje z vlastního pole je lepší sundat dřív, než začne výroba), silnici
+staví jen když otevře slušné místo, a s bankou mění i ze zásob.
+
+| souboj | výhry | významnost |
+|---|---|---|
+| hard vs easy | 90,7 % | 14,1 σ |
+| normal vs easy | 88,2 % | 13,2 σ |
+| hard vs normal | 59,7 % | 3,3 σ |
+
+(300 partijí na souboj, střídá se, kdo začíná.)
+
+### Co hlídá `tools/test-katan.mjs`
+
+55 testů. Kromě pravidel odehraje 25 celých partijí mezi boty a po každém
+tahu kontroluje, že **suroviny v rukách plus banka dávají pořád 19 od každé**.
+Tahle jedna kontrola chytila víc než všechno ostatní dohromady – karty se
+u Katanu ztrácejí na víc místech, než se člověku zdá (zloděj, monopol,
+zahazování při sedmičce, obchod).
 
 ## Šachy
 

@@ -1626,3 +1626,172 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   .un-hromadky{gap:11px}
   .un-vejir i{width:16px; height:24px; margin-right:-9px}
 }
+
+
+/* ── Osadníci z Katanu ──────────────────────────────
+   Deska uprostřed, hráči vlevo, moje věci vpravo. Pole mají vlastní
+   pevné barvy – les musí být zelený i v růžovém motivu. */
+.ka{
+  position:absolute; inset:0; z-index:12; display:flex; gap:10px; padding:10px;
+  pointer-events:auto; overflow:hidden;
+}
+.ka-vlevo,.ka-vpravo{
+  width:210px; flex-shrink:0; display:flex; flex-direction:column; gap:7px;
+  overflow-y:auto; min-height:0;
+}
+.ka-vpravo{width:224px; padding-top:48px}
+.ka-nadpis{
+  font-size:.62rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--tx2); border-bottom:1px solid var(--brd); padding-bottom:3px; margin-top:2px;
+}
+.ka-deska{flex:1; display:flex; align-items:center; justify-content:center; min-width:0; position:relative}
+.ka-svg{width:auto; height:100%; max-width:100%; max-height:100%; aspect-ratio:700/620}
+
+/* Hráči */
+.ka-hraci{display:flex; flex-direction:column; gap:5px}
+.ka-hrac{
+  --c:#888; display:grid; grid-template-columns:auto 1fr auto; gap:4px 7px; align-items:center;
+  padding:5px 8px; border-radius:9px; background:var(--bg2); border:1px solid var(--brd); opacity:.62;
+}
+.ka-hrac.on{opacity:1; border-color:var(--c); box-shadow:0 0 12px color-mix(in srgb,var(--c) 30%,transparent)}
+.ka-hrac.ja .ka-jmeno{text-decoration:underline; text-underline-offset:3px}
+.ka-tecka{width:9px; height:9px; border-radius:50%; background:var(--c)}
+.ka-jmeno{font-size:.74rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ka-body{font-family:var(--font-display); font-size:.85rem; color:var(--acc2)}
+.ka-drobne{grid-column:1/-1; font-size:.66rem; color:var(--tx3)}
+
+.ka-log{
+  flex:1; min-height:70px; overflow-y:auto; font-size:.68rem; line-height:1.5;
+  color:var(--tx3); background:var(--bg2); border:1px solid var(--brd);
+  border-radius:9px; padding:6px 8px;
+}
+.ka-log div{padding:1px 0; border-bottom:1px solid rgba(255,255,255,.04)}
+
+/* Pravý panel */
+.ka-stav{
+  font-size:.8rem; font-weight:600; color:var(--tx2); text-align:center;
+  padding:6px 8px; border-radius:9px; background:var(--bg2); border:1px solid var(--brd);
+}
+.ka-stav.muj{color:var(--acc2); border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+
+.ka-suroviny{display:grid; grid-template-columns:repeat(5,1fr); gap:4px}
+.ka-sur{
+  display:flex; flex-direction:column; align-items:center; gap:1px;
+  padding:4px 0; border-radius:7px; background:var(--bg2); border:1px solid var(--brd);
+}
+.ka-sur span{font-size:.95rem; line-height:1}
+.ka-sur b{font-family:var(--font-display); font-size:.9rem}
+
+.ka-kostky{display:flex; align-items:center; justify-content:center; gap:8px}
+.ka-kostka{
+  width:34px; height:34px; border-radius:8px; background:#f5e6c8; color:#1a0a00;
+  display:flex; align-items:center; justify-content:center; font-size:1.4rem;
+}
+.ka-soucet{font-family:var(--font-display); font-size:1.1rem; color:var(--acc2); min-width:20px}
+
+.ka-btn{
+  padding:7px 10px; border-radius:9px; cursor:pointer; width:100%;
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx);
+  font-family:var(--font-display); font-size:.76rem; letter-spacing:.06em;
+  transition:transform .14s, box-shadow .14s, opacity .14s;
+}
+.ka-btn:not(:disabled):hover{transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.ka-btn:disabled{opacity:.4; cursor:not-allowed}
+.ka-btn.hlavni{background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#0b0b12; border:none}
+.ka-btn.konec{margin-top:auto; background:color-mix(in srgb,var(--ok) 16%,var(--surface)); border-color:var(--ok); color:var(--ok)}
+.ka-btn.maly{font-size:.68rem; padding:5px 8px}
+
+.ka-stavby{display:flex; flex-direction:column; gap:4px}
+.ka-stavba{
+  display:grid; grid-template-columns:1fr auto; gap:2px 6px; align-items:center;
+  padding:4px 8px; border-radius:8px; background:var(--bg2); border:1px solid var(--brd); opacity:.6;
+}
+.ka-stavba.lze{opacity:1; border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.ka-stavba b{font-size:.72rem}
+.ka-cena{font-size:.7rem; letter-spacing:-1px}
+.ka-kolik{grid-column:1/-1; font-size:.62rem; color:var(--tx3)}
+.ka-pozn{font-size:.66rem; color:var(--tx3); text-align:center; padding:2px}
+
+.ka-karty{display:flex; flex-direction:column; gap:4px}
+.ka-karta{
+  display:flex; align-items:center; gap:6px; padding:5px 7px; border-radius:8px;
+  background:var(--bg2); border:1px solid var(--brd); opacity:.75;
+}
+.ka-karta.lze{opacity:1; border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.ka-kikona{font-size:1rem}
+.ka-kinfo{flex:1; display:flex; flex-direction:column; min-width:0}
+.ka-kinfo b{font-size:.7rem}
+.ka-kinfo small{font-size:.62rem; color:var(--tx3); line-height:1.25}
+
+.ka-banka{display:flex; align-items:center; gap:5px}
+.ka-banka select{
+  flex:1; min-width:0; background:var(--surface); color:var(--tx);
+  border:1px solid var(--brd); border-radius:7px; padding:4px 5px; font:inherit; font-size:.72rem;
+}
+.ka-sipka{color:var(--tx3)}
+
+/* Deska */
+.ka-pole{cursor:default}
+.ka-pole.cil{cursor:crosshair}
+.ka-pole.cil polygon{filter:brightness(1.25); stroke:#fff; stroke-width:3}
+.ka-zlodej{filter:drop-shadow(0 2px 4px rgba(0,0,0,.7))}
+.ka-hrana{cursor:default; stroke-opacity:.9}
+.ka-hrana.lze{cursor:pointer; stroke-opacity:.55; stroke-dasharray:6 4}
+.ka-hrana.lze:hover{stroke-opacity:1; stroke-width:8}
+.ka-vrchol{cursor:default; transition:filter .12s, stroke-width .12s}
+.ka-vrchol.lze{cursor:pointer}
+.ka-vrchol.lze:hover{stroke-width:3; filter:drop-shadow(0 0 7px #fff)}
+
+/* Modály */
+.ka-modal{
+  position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(3px);
+}
+.ka-modal-box{
+  background:var(--bg2); border:1px solid var(--brd); border-radius:14px; padding:18px;
+  min-width:260px; max-width:min(420px,86vw); display:flex; flex-direction:column; gap:9px;
+}
+.ka-modal-nadpis{
+  font-family:var(--font-display); font-size:1rem; letter-spacing:.06em;
+  color:var(--acc2); text-align:center;
+}
+.ka-vyber{display:flex; flex-direction:column; gap:6px}
+.ka-vyber-radek{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:5px 8px; border-radius:8px; background:var(--surface); font-size:.78rem;
+}
+.ka-pocitadlo{display:flex; align-items:center; gap:6px}
+.ka-pocitadlo button{
+  width:22px; height:22px; border-radius:6px; cursor:pointer;
+  background:var(--surface2); border:1px solid var(--brd); color:var(--tx); font:inherit;
+}
+.ka-pocitadlo b{font-family:var(--font-display); min-width:14px; text-align:center}
+.ka-pocitadlo small{font-size:.62rem; color:var(--tx3)}
+
+.ka-hlaska{
+  position:absolute; left:50%; bottom:8px; transform:translateX(-50%);
+  font-size:.74rem; color:var(--tx2); background:color-mix(in srgb,var(--bg) 80%,transparent);
+  padding:4px 12px; border-radius:99px; border:1px solid var(--brd); white-space:nowrap;
+}
+
+/* Obchod s hraci */
+.ka-obchod{display:flex; flex-direction:column; gap:5px}
+.ka-nabidka{
+  --c:#888; display:flex; flex-direction:column; gap:3px;
+  padding:6px 8px; border-radius:9px; background:var(--bg2);
+  border:1px solid var(--brd); border-left:4px solid var(--c);
+}
+.ka-nabidka b{font-size:.72rem}
+.ka-vymena{display:flex; align-items:center; gap:6px; font-size:.9rem; letter-spacing:-1px}
+.ka-vymena small{
+  font-size:.6rem; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--tx3); min-width:52px; letter-spacing:0;
+}
+
+@media (max-width:1000px){
+  .ka{flex-direction:column; overflow-y:auto}
+  .ka-vlevo,.ka-vpravo{width:100%; flex-direction:row; flex-wrap:wrap; overflow:visible}
+  .ka-vpravo{padding-top:0}
+  .ka-deska{min-height:44vh}
+  .ka-btn.konec{margin-top:0; width:auto; flex:1}
+}
