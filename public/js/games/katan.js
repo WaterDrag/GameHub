@@ -218,18 +218,41 @@ export default {
         x1: a.x, y1: a.y, x2: b.x, y2: b.y,
         class: 'ka-hrana', 'stroke-linecap': 'round', 'stroke-width': 6, stroke: 'transparent',
       });
-      cara.onclick = () => this.klikHrana(e.id);
       svg.append(cara);
       this.hranaPrvky.push(cara);
+    }
+
+    // Klikat se nemá na čáru širokou 6 px. Nad kresbou leží široký
+    // průsvitný pás, který bere kliky – a to jen když se tam smí stavět.
+    this.hranaCile = [];
+    for (const e of v.hrany) {
+      const a = v.vrcholy[e.v1], b = v.vrcholy[e.v2];
+      const cil = mk('line', {
+        x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+        class: 'ka-cil-hrana', 'stroke-linecap': 'round', 'stroke-width': 20,
+      });
+      cil.onclick = () => this.klikHrana(e.id);
+      svg.append(cil);
+      this.hranaCile.push(cil);
     }
 
     // Vrcholy.
     this.vrcholPrvky = [];
     for (const vr of v.vrcholy) {
       const c = mk('path', { d: TVAR.prazdno, transform: `translate(${vr.x},${vr.y})`, class: 'ka-vrchol' });
-      c.onclick = () => this.klikVrchol(vr.id);
       svg.append(c);
       this.vrcholPrvky.push(c);
+    }
+
+    // Klikací terč je až tady, nad vším ostatním – trefí se do něj i ten,
+    // kdo míří doprostřed kroužku místo na jeho okraj. Vrcholy jsou od
+    // sebe 52 px, takže poloměr 16 se nemůže překrývat se sousedícím.
+    this.vrcholCile = [];
+    for (const vr of v.vrcholy) {
+      const cil = mk('circle', { cx: vr.x, cy: vr.y, r: 16, class: 'ka-cil-vrchol' });
+      cil.onclick = () => this.klikVrchol(vr.id);
+      svg.append(cil);
+      this.vrcholCile.push(cil);
     }
   },
 
@@ -277,6 +300,7 @@ export default {
     v.hrany.forEach((e, i) => {
       const el = this.hranaPrvky[i];
       this.hranaPouzdra[i].setAttribute('opacity', e.majitel !== null ? 1 : 0);
+      this.hranaCile[i].classList.toggle('lze', e.majitel === null && lzeSil.has(e.id));
       if (e.majitel !== null) {
         el.setAttribute('stroke', BARVY[e.majitel]);
         el.setAttribute('stroke-width', 6);
@@ -296,7 +320,9 @@ export default {
     const lzeMe = new Set(v.lzeMesto || []);
     v.vrcholy.forEach((vr, i) => {
       const el = this.vrcholPrvky[i];
-      el.classList.toggle('lze', lzeOs.has(vr.id) || lzeMe.has(vr.id));
+      const lze = lzeOs.has(vr.id) || lzeMe.has(vr.id);
+      el.classList.toggle('lze', lze);
+      this.vrcholCile[i].classList.toggle('lze', lze);
       if (vr.majitel !== null) {
         el.setAttribute('d', vr.typ === 'mesto' ? TVAR.mesto : TVAR.osada);
         el.setAttribute('fill', BARVY[vr.majitel]);

@@ -1739,9 +1739,15 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .ka-hrana{cursor:default; stroke-opacity:.9}
 .ka-hrana.lze{cursor:pointer; stroke-opacity:.55; stroke-dasharray:6 4}
 .ka-hrana.lze:hover{stroke-opacity:1; stroke-width:8}
-.ka-vrchol{cursor:default; transition:filter .12s, stroke-width .12s}
-.ka-vrchol.lze{cursor:pointer}
-.ka-vrchol.lze:hover{stroke-width:3; filter:drop-shadow(0 0 7px #fff)}
+.ka-vrchol{pointer-events:none; transition:filter .12s}
+
+/* Terče na klikaní – větší než kresba, jinak se do stavby na okraji
+   kroužku nikdo netrefí. Mimo svůj tah kliky nechytají vůbec, ať nekradí
+   kliknutí na pole při přesunu zloděje. */
+.ka-cil-vrchol,.ka-cil-hrana{pointer-events:none; fill:transparent; stroke:transparent}
+.ka-cil-vrchol.lze,.ka-cil-hrana.lze{pointer-events:all; cursor:pointer}
+.ka-cil-vrchol.lze:hover{fill:rgba(255,255,255,.22)}
+.ka-cil-hrana.lze:hover{stroke:rgba(255,255,255,.25)}
 
 /* Modály */
 .ka-modal{
