@@ -1,16 +1,21 @@
 // ─────────────────────────────────────────────────────────────
 //  UNO No Mercy – stůl.
 //
-//  Kreslí a nic nerozhoduje. Co smí hráč zahrát, říká server v `moznosti`;
-//  klient si to nepočítá sám, aby si nešlo v konzoli povolit cokoliv.
+//  Hráči sedí kolem stolu: já dole, ostatní po horním oblouku, každý
+//  s vějířem rubů natočeným do středu. Uprostřed leží balíček a odhoz.
 //
-//  Karty soupeřů se sem vůbec neposílají – jen jejich počty.
+//  Kreslí a nic nerozhoduje. Co smí hráč zahrát, říká server
+//  v `moznosti`; klient si to nepočítá sám, aby si nešlo v konzoli
+//  povolit cokoliv. Karty soupeřů se sem vůbec neposílají – jen počty.
 // ─────────────────────────────────────────────────────────────
 import {
-  BARVY, BARVA_INFO, DIVOKA, znak, nazevZnaku, jeDivoka,
+  BARVY, BARVA_INFO, znak, nazevZnaku, jeDivoka,
 } from '/shared/games/uno/karty.js';
 
-const MALY_ZNAK = new Set(['+4', '+6', '+10', '⏭', '🗑']);
+const MALY_ZNAK = new Set(['+4', '+6', '+10', '⏭', '🗑', '🎯']);
+
+// Kolik rubů se u soupeře vykreslí, než se to zjednoduší na číslo.
+const RUBU_MAX = 7;
 
 export default {
   id: 'uno',
@@ -29,32 +34,33 @@ export default {
     host.appendChild(this.root);
 
     this.root.innerHTML = `
-      <div class="un-soupeti" id="unSoupeti"></div>
+      <div class="un-stul" id="unStul">
+        <div class="un-mista" id="unMista"></div>
 
-      <div class="un-stred">
-        <div class="un-trest hidden" id="unTrest"></div>
-        <div class="un-hromadky">
-          <div class="un-hromadka">
-            <span class="un-popis">Balíček</span>
-            <div class="un-balicek" id="unBalicek">
-              <div class="un-karta un-rub"><div class="un-ram"><div class="un-vnitrek">
-                <span class="un-rub-text">UNO</span>
-              </div></div></div>
+        <div class="un-stred">
+          <div class="un-trest hidden" id="unTrest"></div>
+          <div class="un-hromadky">
+            <div class="un-hromadka">
+              <div class="un-balicek" id="unBalicek">
+                <div class="un-karta un-rub"><div class="un-ram"><div class="un-vnitrek">
+                  <span class="un-rub-text">UNO</span>
+                </div></div></div>
+              </div>
+              <span class="un-pocet" id="unBalicekPocet">—</span>
             </div>
-            <span class="un-pocet" id="unBalicekPocet">—</span>
-          </div>
 
-          <div class="un-smer">
-            <span class="un-smer-text" id="unSmer">→</span>
-            <span class="un-barva" id="unBarva"></span>
-          </div>
+            <div class="un-smer">
+              <span class="un-smer-sipka" id="unSmer">↻</span>
+              <span class="un-barva" id="unBarva"></span>
+            </div>
 
-          <div class="un-hromadka">
-            <span class="un-popis">Odhoz</span>
-            <div class="un-odhoz" id="unOdhoz"></div>
-            <span class="un-pocet" id="unOdhozPocet"></span>
+            <div class="un-hromadka">
+              <div class="un-odhoz" id="unOdhoz"></div>
+              <span class="un-pocet" id="unOdhozPocet"></span>
+            </div>
           </div>
         </div>
+
         <div class="un-log" id="unLog"></div>
       </div>
 
@@ -117,17 +123,37 @@ export default {
     </div>`;
   },
 
+  // ── Kde kdo sedí ───────────────────────────────────────────
+  //  Já jsem dole a nekreslím se – moje karty leží v panelu. Ostatní
+  //  se rozprostřou po HORNÍM oblouku, protože obrazovka je široká
+  //  a ne kulatá; kolem dokola by se dolní hráči lezli do ruky.
+  //
+  //  Vrací {x, y} v procentech stolu a náklon vějíře.
+  misto(poradi, celkem) {
+    const t = celkem === 1 ? 0.5 : poradi / (celkem - 1);
+    const uhel = 168 - t * 156;                 // 168° vlevo → 12° vpravo
+    const rad = (uhel * Math.PI) / 180;
+    // Vodorovný poloměr je menší než svislý poměr stolu – jinak by
+    // krajní hráči viseli přes okraj a jmenovky se ořízly.
+    return {
+      x: 50 + Math.cos(rad) * 36,
+      y: 50 - Math.sin(rad) * 42,
+      // Vějíř se naklání ke stolu, ale jen mírně – svisle by se
+      // zleva i zprava špatně četl.
+      naklon: (90 - uhel) * 0.35,
+    };
+  },
+
   // ── Akce ───────────────────────────────────────────────────
   lizni() {
-    if (!this.view?.myTurn) return;
+    if (!this.view?.myTurn || this.view.musiZahrat !== null || this.view.vymena) return;
     this.ctx.send('action', { a: 'lizni' });
   },
 
   klikKarta(idx) {
     const v = this.view;
     if (!v?.myTurn || !(v.moznosti || []).includes(idx)) return;
-    const karta = v.ruka[idx];
-    if (jeDivoka(karta)) {
+    if (jeDivoka(v.ruka[idx])) {
       this.divokaIdx = idx;
       this.root.querySelector('#unVyber').classList.remove('hidden');
       return;
@@ -143,7 +169,6 @@ export default {
   },
 
   update(view) {
-    // Nová karta v ruce = zavřít výběr barvy, který se mezitím rozešel.
     if (view.naTahu !== this.view?.naTahu) {
       this.root.querySelector('#unVyber').classList.add('hidden');
       this.divokaIdx = null;
@@ -171,35 +196,15 @@ export default {
     if (!v) return;
     const naTahu = this.ctx.players.find(p => p.uid === v.seats[v.naTahu]);
 
-    // Soupeři
-    const box = this.root.querySelector('#unSoupeti');
-    const podpis = `${v.naTahu}|${v.pocty.join(',')}|${v.vyrazeni.join(',')}|${v.unoOhrozeny}`;
-    if (podpis !== this._podpisSoupeti) {
-      this._podpisSoupeti = podpis;
-      box.innerHTML = '';
-      for (let h = 0; h < v.hracu; h++) {
-        if (h === v.mySeat) continue;
-        const p = this.ctx.players.find(x => x.uid === v.seats[h]);
-        const jmeno = (p?.name || 'Hráč') + (p?.bot || p?.botControlled ? ' 🤖' : '');
-        const ven = v.vyrazeni.includes(h);
-        const mini = Array.from({ length: Math.min(v.pocty[h], 8) }, () => '<i></i>').join('');
-        const d = document.createElement('div');
-        d.className = `un-souper${h === v.naTahu ? ' on' : ''}${ven ? ' ven' : ''}`;
-        d.innerHTML = ven
-          ? `<span class="un-jmeno">${jmeno}</span><span class="un-ven">VYŘAZEN</span>`
-          : `<span class="un-jmeno">${jmeno}</span>
-             <span class="un-pocet-velky">${v.pocty[h]}</span>
-             <span class="un-mini">${mini}${v.pocty[h] > 8 ? `<b>+${v.pocty[h] - 8}</b>` : ''}</span>
-             ${v.unoOhrozeny === h ? '<span class="un-znacka">UNO?!</span>' : ''}`;
-        box.append(d);
-      }
-    }
+    this.renderMista(v);
 
     // Střed
     this.root.querySelector('#unOdhoz').innerHTML = this.kartaHtml(v.vrch);
     this.root.querySelector('#unBalicekPocet').textContent = v.balicku;
     this.root.querySelector('#unOdhozPocet').textContent = v.odhozu;
-    this.root.querySelector('#unSmer').textContent = v.smer === 1 ? '→' : '←';
+    const sipka = this.root.querySelector('#unSmer');
+    sipka.textContent = v.smer === 1 ? '↻' : '↺';
+    sipka.title = v.smer === 1 ? 'Hraje se po směru hodinových ručiček' : 'Hraje se proti směru';
 
     const barva = this.root.querySelector('#unBarva');
     barva.style.background = BARVA_INFO[v.barva]?.hex || '#888';
@@ -213,13 +218,65 @@ export default {
     const t = (v.log || []).slice(-2).join(' · ');
     if (t !== log.textContent) log.textContent = t;
 
-    // Panel
+    this.renderPanel(v);
+    this.renderVymenu(v);
+    this.renderRuku(v);
+  },
+
+  // Místa kolem stolu.
+  renderMista(v) {
+    const box = this.root.querySelector('#unMista');
+    const podpis = `${v.hracu}|${v.mySeat}|${v.naTahu}|${v.pocty.join(',')}|${v.vyrazeni.join(',')}|${v.unoOhrozeny}`;
+    if (podpis === this._podpisMist) return;
+    this._podpisMist = podpis;
+    box.innerHTML = '';
+
+    // Pořadí kolem stolu: po směru sedadel ode mě dál.
+    const soupeRi = [];
+    for (let o = 1; o < v.hracu; o++) soupeRi.push((v.mySeat + o) % v.hracu);
+
+    soupeRi.forEach((h, i) => {
+      const p = this.ctx.players.find(x => x.uid === v.seats[h]);
+      const jmeno = (p?.name || 'Hráč') + (p?.bot || p?.botControlled ? ' 🤖' : '');
+      const ven = v.vyrazeni.includes(h);
+      const m = this.misto(i, soupeRi.length);
+
+      const d = document.createElement('div');
+      d.className = `un-misto${h === v.naTahu ? ' on' : ''}${ven ? ' ven' : ''}`;
+      d.style.left = `${m.x}%`;
+      d.style.top = `${m.y}%`;
+
+      const rubu = Math.min(v.pocty[h], RUBU_MAX);
+      const vejir = Array.from({ length: rubu }, (_, j) => {
+        // Vějíř se rozevírá od středu; každá karta o kousek jinak.
+        const stred = (rubu - 1) / 2;
+        const uhel = (j - stred) * 7;
+        const zdvih = Math.abs(j - stred) * 2;
+        return `<i style="--r:${uhel}deg;--y:${zdvih}px"></i>`;
+      }).join('');
+
+      d.innerHTML = ven
+        ? `<div class="un-jmenovka"><span class="un-jmeno">${jmeno}</span><b class="un-ven">VEN</b></div>`
+        : `<div class="un-vejir" style="--naklon:${m.naklon.toFixed(1)}deg">${vejir}</div>
+           <div class="un-jmenovka">
+             <span class="un-jmeno">${jmeno}</span>
+             <b>${v.pocty[h]}</b>
+           </div>
+           ${v.unoOhrozeny === h ? '<span class="un-znacka">UNO?!</span>' : ''}`;
+      box.append(d);
+    });
+  },
+
+  renderPanel(v) {
+    const naTahu = this.ctx.players.find(p => p.uid === v.seats[v.naTahu]);
     const stav = this.root.querySelector('#unStav');
     if (v.vitez !== null) stav.textContent = 'Konec hry';
-    else if (v.vyrazeni.includes(v.mySeat)) stav.textContent = 'Jsi venku – 25 karet';
+    else if (v.vyrazeni.includes(v.mySeat)) stav.textContent = `Jsi venku – ${v.milost} karet`;
     else if (v.vymena && v.vymena.hrac === v.mySeat) stav.textContent = 'Vyber, s kým si vyměníš karty';
-    else if (v.vymena) stav.textContent = `${this.ctx.players.find(p => p.uid === v.seats[v.vymena.hrac])?.name || 'Soupeř'} vybírá výměnu…`;
-    else if (v.myTurn && v.musiZahrat !== null) stav.textContent = 'Líznutou kartu musíš zahrát';
+    else if (v.vymena) {
+      const kdo = this.ctx.players.find(p => p.uid === v.seats[v.vymena.hrac]);
+      stav.textContent = `${kdo?.name || 'Soupeř'} vybírá výměnu…`;
+    } else if (v.myTurn && v.musiZahrat !== null) stav.textContent = 'Líznutou kartu musíš zahrát';
     else if (v.myTurn) stav.textContent = v.musiLizat ? 'Líži dál…' : 'Jsi na tahu';
     else stav.textContent = `Hraje ${naTahu?.name || 'soupeř'}`;
     stav.classList.toggle('muj', !!v.myTurn);
@@ -234,45 +291,46 @@ export default {
     this.root.querySelector('#unUno').classList.toggle('hidden', !v.muzuUno);
     this.root.querySelector('#unChyt').classList.toggle('hidden',
       v.unoOhrozeny === null || v.unoOhrozeny === v.mySeat);
+  },
 
-    // Výběr protějšku pro sedmičku
-    const vymBox = this.root.querySelector('#unVymena');
-    const mojeVymena = v.vymena && v.vymena.hrac === v.mySeat;
-    vymBox.classList.toggle('hidden', !mojeVymena);
-    if (mojeVymena) {
-      const podpisV = (v.cileVymeny || []).join(',') + '|' + v.pocty.join(',');
-      if (podpisV !== this._podpisVymeny) {
-        this._podpisVymeny = podpisV;
-        const m = this.root.querySelector('#unVymenaMrizka');
-        m.innerHTML = '';
-        for (const h of v.cileVymeny || []) {
-          const p = this.ctx.players.find(x => x.uid === v.seats[h]);
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'un-hrac-btn';
-          b.innerHTML = `<span>${p?.name || 'Hráč'}</span><b>${v.pocty[h]}</b>`;
-          b.onclick = () => this.ctx.send('action', { a: 'vymen', cil: h });
-          m.append(b);
-        }
-      }
+  renderVymenu(v) {
+    const box = this.root.querySelector('#unVymena');
+    const moje = v.vymena && v.vymena.hrac === v.mySeat;
+    box.classList.toggle('hidden', !moje);
+    if (!moje) return;
+    const podpis = (v.cileVymeny || []).join(',') + '|' + v.pocty.join(',');
+    if (podpis === this._podpisVymeny) return;
+    this._podpisVymeny = podpis;
+
+    const m = this.root.querySelector('#unVymenaMrizka');
+    m.innerHTML = '';
+    for (const h of v.cileVymeny || []) {
+      const p = this.ctx.players.find(x => x.uid === v.seats[h]);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'un-hrac-btn';
+      b.innerHTML = `<span>${p?.name || 'Hráč'}</span><b>${v.pocty[h]}</b>`;
+      b.onclick = () => this.ctx.send('action', { a: 'vymen', cil: h });
+      m.append(b);
     }
+  },
 
-    // Ruka
+  renderRuku(v) {
     const ruka = this.root.querySelector('#unRuka');
-    const podpisRuky = `${JSON.stringify(v.ruka)}|${(v.moznosti || []).join(',')}|${v.myTurn}`;
-    if (podpisRuky !== this._podpisRuky) {
-      this._podpisRuky = podpisRuky;
-      ruka.innerHTML = '';
-      v.ruka.forEach((k, i) => {
-        const lze = v.myTurn && (v.moznosti || []).includes(i);
-        const el = document.createElement('div');
-        el.innerHTML = this.kartaHtml(k, lze ? 'lze' : 'nelze');
-        const karta = el.firstElementChild;
-        karta.title = `${nazevZnaku(k.z)}${jeDivoka(k) ? '' : ` (${BARVA_INFO[k.b]?.nazev})`}`;
-        if (lze) karta.onclick = () => this.klikKarta(i);
-        ruka.append(karta);
-      });
-    }
+    const podpis = `${JSON.stringify(v.ruka)}|${(v.moznosti || []).join(',')}|${v.myTurn}`;
+    if (podpis === this._podpisRuky) return;
+    this._podpisRuky = podpis;
+
+    ruka.innerHTML = '';
+    v.ruka.forEach((k, i) => {
+      const lze = v.myTurn && (v.moznosti || []).includes(i);
+      const el = document.createElement('div');
+      el.innerHTML = this.kartaHtml(k, lze ? 'lze' : 'nelze');
+      const karta = el.firstElementChild;
+      karta.title = `${nazevZnaku(k.z)}${jeDivoka(k) ? '' : ` (${BARVA_INFO[k.b]?.nazev})`}`;
+      if (lze) karta.onclick = () => this.klikKarta(i);
+      ruka.append(karta);
+    });
   },
 
   resize() {},

@@ -580,6 +580,20 @@ to barvu neřeší.
 Sedmička potřebuje výběr protějšku, takže má – podobně jako sniper v Člověče –
 vlastní fázi tahu: dokud si hráč nevybere, nikdo jiný hrát nemůže.
 
+### Stůl, ne pruh nahoře
+
+Hráči sedí kolem stolu: já dole (ruka je v panelu), ostatní po **horním
+oblouku**, každý s vějířem rubů natočeným ke středu a jmenovkou s počtem karet.
+Uprostřed leží balíček, směr hry, aktuální barva a odhoz.
+
+Kolem dokola to schválně není. Obrazovka je široká a ne kulatá, takže dolní
+hráči by lezli do vlastní ruky. Vodorovný poloměr je proto menší než svislý,
+jinak krajní hráči visí přes okraj a jmenovky se ořízly. Ověřeno pro jednoho
+až sedm soupeřů – všichni se vejdou do stolu.
+
+Vějíř se ke stolu naklání jen mírně (35 % úhlu). Při plném natočení by se
+zleva i zprava četl svisle a vypadal jako sloupec.
+
 ### Karty v ruce jsou tajné
 
 Tohle je hlavní důvod, proč hra běží na serveru. V předloze ležely **všechny
