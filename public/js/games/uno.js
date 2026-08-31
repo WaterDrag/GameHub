@@ -259,13 +259,15 @@ export default {
         return `<i style="--r:${uhel}deg;--y:${zdvih}px"></i>`;
       }).join('');
 
+      // Jmenovka je NAD kartami – pod nimi se pletla do vějíře a u bočních
+      // hráčů ho překrývala.
       d.innerHTML = ven
         ? `<div class="un-jmenovka"><span class="un-jmeno">${jmeno}</span><b class="un-ven">VEN</b></div>`
-        : `<div class="un-vejir" style="--naklon:${m.naklon.toFixed(1)}deg">${vejir}</div>
-           <div class="un-jmenovka">
+        : `<div class="un-jmenovka">
              <span class="un-jmeno">${jmeno}</span>
              <b>${v.pocty[h]}</b>
            </div>
+           <div class="un-vejir" style="--naklon:${m.naklon.toFixed(1)}deg">${vejir}</div>
            ${v.unoOhrozeny === h ? '<span class="un-znacka">UNO?!</span>' : ''}`;
       box.append(d);
     });

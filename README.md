@@ -583,7 +583,8 @@ vlastní fázi tahu: dokud si hráč nevybere, nikdo jiný hrát nemůže.
 ### Stůl, ne pruh nahoře
 
 Hráči sedí kolem stolu: já dole (ruka je v panelu), ostatní po **horním
-oblouku**, každý s vějířem rubů natočeným ke středu a jmenovkou s počtem karet.
+oblouku**, každý s vějířem rubů natočeným ke středu a jmenovkou s počtem karet
+**nad kartami** – pod nimi se pletla do vějíře a u bočních hráčů ho překrývala.
 Uprostřed leží balíček, směr hry, aktuální barva a odhoz.
 
 Kolem dokola to schválně není. Obrazovka je široká a ne kulatá, takže dolní
