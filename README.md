@@ -697,6 +697,20 @@ k další stavbě, a tvrdý bot nepodrží toho, kdo má osm a víc bodů. Když
 nikdo nechce a není už kdo by ji přijal, sama padne, ať hráč nečumí na něco,
 co se nikdy nevyřeší.
 
+### Barvy
+
+Deska má šest terénů a hráči čtyři barvy, takže se snáz srazí, než se zdá.
+První pokus měl zeleného hráče na zelené pastvině, žlutého na obilí a
+červeného na cihle – nejbližší dvojice byla ve vzdálenosti **46** (RGB), což
+je prakticky nerozeznatelné. Barvy hráčů proto **nesmí sáhnout na nic, co je
+na desce**: růžová, modrá, bílá, fialová – nejhorší dvojice **121**.
+Terény se mezi sebou dostaly ze 45 na 99 (les byl skoro tohož odstínu jako
+hory a poušť táž hnědá jako les).
+
+K tomu má každá silnice pod sebou **tmavé pouzdro** a každá stavba tmavý
+obrys – bez toho by bílý hráč zanikl na poušti. Nápověda, kam se smí
+stavět, je **dutý kroužek**, ne plný puník, ať se neplete s bílou osadou.
+
 ### Boti
 
 Rozmístění rozhoduje partii víc než cokoliv později, takže se vrcholy hodnotí

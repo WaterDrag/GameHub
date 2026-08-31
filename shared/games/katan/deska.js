@@ -14,12 +14,12 @@ export const SUROVINY = ['drevo', 'cihla', 'vlna', 'obili', 'ruda'];
 export const POUST = 'poust';
 
 export const SUROVINA_INFO = {
-  drevo: { nazev: 'Dřevo', emoji: '🌲', barva: '#5d4037', svetla: '#8d6e63' },
-  cihla: { nazev: 'Cihla', emoji: '🧱', barva: '#bf360c', svetla: '#ff7043' },
-  vlna: { nazev: 'Vlna', emoji: '🐑', barva: '#2e7d32', svetla: '#66bb6a' },
-  obili: { nazev: 'Obilí', emoji: '🌾', barva: '#f57f17', svetla: '#fdd835' },
-  ruda: { nazev: 'Ruda', emoji: '⛏', barva: '#37474f', svetla: '#90a4ae' },
-  poust: { nazev: 'Poušť', emoji: '🌵', barva: '#8d6e63', svetla: '#d4a843' },
+  drevo: { nazev: 'Dřevo', emoji: '🌲', barva: '#14532d', svetla: '#3f8f5a' },
+  cihla: { nazev: 'Cihla', emoji: '🧱', barva: '#9a3412', svetla: '#e07a4a' },
+  vlna: { nazev: 'Vlna', emoji: '🐑', barva: '#65a30d', svetla: '#bef264' },
+  obili: { nazev: 'Obilí', emoji: '🌾', barva: '#ca8a04', svetla: '#fde047' },
+  ruda: { nazev: 'Ruda', emoji: '⛏', barva: '#546e7a', svetla: '#b0c4cf' },
+  poust: { nazev: 'Poušť', emoji: '🌵', barva: '#c2ab86', svetla: '#e8dcc4' },
 };
 
 // Standardní rozpis Katanu.

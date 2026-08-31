@@ -1735,6 +1735,7 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .ka-pole.cil{cursor:crosshair}
 .ka-pole.cil polygon{filter:brightness(1.25); stroke:#fff; stroke-width:3}
 .ka-zlodej{filter:drop-shadow(0 2px 4px rgba(0,0,0,.7))}
+.ka-pouzdro{pointer-events:none}
 .ka-hrana{cursor:default; stroke-opacity:.9}
 .ka-hrana.lze{cursor:pointer; stroke-opacity:.55; stroke-dasharray:6 4}
 .ka-hrana.lze:hover{stroke-opacity:1; stroke-width:8}

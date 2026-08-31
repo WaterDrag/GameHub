@@ -17,7 +17,12 @@ const mk = (tag, a = {}) => {
   for (const [k, v] of Object.entries(a)) n.setAttribute(k, v);
   return n;
 };
-const BARVY = ['#e53935', '#1e88e5', '#43a047', '#fdd835'];
+// Barvy hráčů schválně nesedí na žádný terén – zelená splynula
+// s pastvinou, žlutá s obilím a červená s cihlou. Modrá, bílá a fialová
+// se na desce nevyskytují vůbec, červená je posunutá do růžové.
+const BARVY = ['#ff2d55', '#38bdf8', '#ffffff', '#c084fc'];
+// Tmavé pouzdro pod stavbami – světlá barva na světlém poli by zanikla.
+const OBRYS = '#0b1c2c';
 // Hrstka surovin jako emoji – pouziva se v nabidkach obchodu.
 const hromadka = (o) => SUROVINY
   .filter(r => (o?.[r] | 0) > 0)
@@ -196,6 +201,17 @@ export default {
 
     // Hrany.
     this.hranaPrvky = [];
+    this.hranaPouzdra = [];
+    for (const e of v.hrany) {
+      const a = v.vrcholy[e.v1], b = v.vrcholy[e.v2];
+      const pouzdro = mk('line', {
+        x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+        class: 'ka-pouzdro', 'stroke-linecap': 'round', 'stroke-width': 10,
+        stroke: OBRYS, opacity: 0,
+      });
+      svg.append(pouzdro);
+      this.hranaPouzdra.push(pouzdro);
+    }
     for (const e of v.hrany) {
       const a = v.vrcholy[e.v1], b = v.vrcholy[e.v2];
       const cara = mk('line', {
@@ -260,6 +276,7 @@ export default {
     const lzeSil = new Set(v.lzeSilnice || []);
     v.hrany.forEach((e, i) => {
       const el = this.hranaPrvky[i];
+      this.hranaPouzdra[i].setAttribute('opacity', e.majitel !== null ? 1 : 0);
       if (e.majitel !== null) {
         el.setAttribute('stroke', BARVY[e.majitel]);
         el.setAttribute('stroke-width', 6);
@@ -283,14 +300,15 @@ export default {
       if (vr.majitel !== null) {
         el.setAttribute('d', vr.typ === 'mesto' ? TVAR.mesto : TVAR.osada);
         el.setAttribute('fill', BARVY[vr.majitel]);
-        el.setAttribute('stroke', '#f5e6c8');
-        el.setAttribute('stroke-width', 1.8);
+        el.setAttribute('stroke', OBRYS);
+        el.setAttribute('stroke-width', 2.2);
         el.setAttribute('opacity', 1);
       } else if (lzeOs.has(vr.id)) {
+        // Duty kroužek, ať se nápověda neplete s bílým hráčem.
         el.setAttribute('d', TVAR.prazdno);
-        el.setAttribute('fill', '#f5e6c8');
-        el.setAttribute('stroke', '#0a2a5a'); el.setAttribute('stroke-width', 1.5);
-        el.setAttribute('opacity', .9);
+        el.setAttribute('fill', 'none');
+        el.setAttribute('stroke', '#ffffff'); el.setAttribute('stroke-width', 2.5);
+        el.setAttribute('opacity', .85);
       } else {
         el.setAttribute('opacity', 0);
       }
