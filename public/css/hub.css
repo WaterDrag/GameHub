@@ -1344,16 +1344,20 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 }
 /* Letící kostka. Sedí v .cl (position:absolute), takže ji překreslení
    panelu nemůže přerušit – hýbe s ní Web Animations API. */
-.cl-let{
-  position:absolute; top:0; left:0; width:58px; height:58px; display:none;
-  border-radius:13px; background:#fff; padding:7px; z-index:40; pointer-events:none;
+/* Vrstva pro letici kostky. Jednotlive kostky jsou az jeji deti, aby
+   u Double trouble mohla kazda letet po vlastni draze a s vlastni rotaci. */
+.cl-let{position:absolute; inset:0; display:none; z-index:40; pointer-events:none}
+.cl-let-k{
+  position:absolute; top:0; left:0;
+  border-radius:13px; background:#fff; padding:7px;
   box-shadow:0 10px 30px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.9);
   will-change:transform, opacity;
 }
-.cl-let .cl-kmrizka i{width:10px; height:10px}
+.cl-let-k .cl-kmrizka{width:100%; height:100%}
+.cl-let-k .cl-kmrizka i{width:9px; height:9px}
 @media (prefers-reduced-motion:reduce){ .cl-let{display:none !important} }
 .cl-kmrizka{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr)}
-.cl-let .cl-kmrizka{width:100%; height:100%}
+
 .cl-kmrizka i{width:7px; height:7px; border-radius:50%; background:#15151f; justify-self:center; align-self:center}
 .cl-kmrizka i.prazdno{background:transparent}
 .cl-hod{

@@ -721,6 +721,16 @@ Součet má minimum 2, takže **o jedno pole se posunout nedá**. Figurka,
 které do volného políčka v cíli chybí právě jedna, už se nehne. Není to
 chyba, ale důsledek pravidla o přesném doskoku – a hlídá to test.
 
+#### Kde se losuje
+
+Kostkou hází **výhradně server**. Ale rotace letící kostky, doba letu i místo
+dopadu se losují **u klienta** – je to čirá dekorace, do stavu hry nesahá,
+a díky tomu dva stejné hody nevypadají stejně. U Double trouble letí kostky
+dvě, každá po vlastní dráze a s vlastní rotací.
+
+Hranice je jednoduchá: co rozhoduje o hře, losuje server. Co jen vypadá,
+si může každý prohlížeč udělat po svém.
+
 #### Umí to boti?
 
 Ano, ale ne stejně dobře u obou:

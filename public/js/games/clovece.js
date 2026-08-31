@@ -63,7 +63,7 @@ export default {
         </div>
         <div class="cl-figurky" id="clFigurky"></div>
       </div>
-      <div class="cl-let" id="clLet"><div class="cl-kmrizka"></div></div>`;
+      <div class="cl-let" id="clLet"></div>`;
 
     this.root.querySelector('#clHod').onclick = () => this.hod();
     this.root.querySelector('#clObet').onclick = () => this.zacniObet();
@@ -274,7 +274,7 @@ export default {
     // nuluje a hráč by se nikdy nedozvěděl, co vlastně hodil.
     this.posledniHod = m.hodnota;
     this.posledniPar = m.kostky || null;
-    this.hodKostkou(m.hodnota, m.seat);
+    this.hodKostkou(m.hodnota, m.seat, m.kostky);
   },
 
   // ── Letící kostka ──────────────────────────────────────────
@@ -286,18 +286,26 @@ export default {
   //  ta se u překreslovaného panelu restartují a odpočet v závodech kvůli
   //  tomu blikal. Tenhle prvek navíc žije MIMO panel, takže ho překreslení
   //  stavu nemůže přerušit.
-  hodKostkou(hodnota, seat) {
-    const letec = this.root?.querySelector('#clLet');
+  //  U Double trouble letí kostky dvě, každá po vlastní dráze a s vlastní
+  //  rotací – jinak by vypadaly jako jedna slepená.
+  //
+  //  Rotace, doba letu i místo dopadu se LOSUJÍ, takže dva stejné hody
+  //  nevypadají stejně. Losuje se u klienta, ne na serveru: je to čirá
+  //  dekorace, do stavu hry to nesahá. Všechno, co o hře rozhoduje
+  //  (hodnoty kostek), pořád losuje výhradně server.
+  hodKostkou(hodnota, seat, kostky) {
+    const vrstva = this.root?.querySelector('#clLet');
     const svg = this.root?.querySelector('#clSvg');
-    if (!letec || !svg) return;
+    if (!vrstva || !svg) return;
 
     this.zrusLet();
+    const hodnoty = (kostky && kostky.length === 2) ? [...kostky] : [hodnota];
 
     // Kdo nechce animace, dostane jen výsledek. Totéž na skryté záložce:
     // tam neběží requestAnimationFrame, takže by kostka visela ve vzduchu.
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       || document.visibilityState === 'hidden') {
-      this.kresliKostku(hodnota, this.view?.kostky);
+      this.kresliKostku(hodnota, kostky);
       return;
     }
 
@@ -307,71 +315,106 @@ export default {
     const a = (zdroj || this.root.querySelector('#clHod')).getBoundingClientRect();
     const b = svg.getBoundingClientRect();
     const r = this.root.getBoundingClientRect();
-    if (!a.width || !b.width) { this.kresliKostku(hodnota, this.view?.kostky); return; }
+    if (!a.width || !b.width) { this.kresliKostku(hodnota, kostky); return; }
 
-    const V = 58;
-    const x0 = a.left + a.width / 2 - r.left - V / 2;
-    const y0 = a.top + a.height / 2 - r.top - V / 2;
-    const x1 = b.left + b.width / 2 - r.left - V / 2;
-    const y1 = b.top + b.height / 2 - r.top - V / 2;
+    const dve = hodnoty.length > 1;
+    const V = dve ? 48 : 58;
+    const nahodne = (rozptyl) => (Math.random() - 0.5) * rozptyl;
 
-    // Směr otáčení se liší podle sedadla, ať dva hody po sobě nevypadají stejně.
-    const otoc = (seat % 2 ? -1 : 1) * (430 + ((hodnota * 53) % 170));
-
-    letec.style.display = 'block';
+    vrstva.innerHTML = '';
+    vrstva.style.display = 'block';
     this._leti = true;
-    this._anim = letec.animate([
-      { transform: `translate(${x0}px,${y0}px) rotate(0deg) scale(.35)`, opacity: 0, offset: 0 },
-      { opacity: 1, offset: .14 },
-      { transform: `translate(${x1}px,${y1 - 26}px) rotate(${otoc * .8}deg) scale(1.2)`, offset: .58 },
-      { transform: `translate(${x1}px,${y1 + 8}px) rotate(${otoc}deg) scale(.92)`, offset: .74 },
-      { transform: `translate(${x1}px,${y1 - 7}px) rotate(${otoc}deg) scale(1.06)`, offset: .87 },
-      { transform: `translate(${x1}px,${y1}px) rotate(${otoc}deg) scale(1)`, opacity: 1, offset: 1 },
-    ], { duration: 620, easing: 'cubic-bezier(.25,.9,.35,1)', fill: 'forwards' });
+    this._anim = [];
+    this._tocim = [];
+    this._kostky = [];
+    let zbyva = hodnoty.length;
+    let nejdelsi = 0;
 
-    // Během letu se stěny přebíjejí – výsledek se ukáže až po dopadu.
-    const mrizka = letec.querySelector('.cl-kmrizka');
-    let i = 0;
-    this._tocim = setInterval(() => this.puntiky(mrizka, 1 + ((i++ * 5 + 2) % 6)), 65);
+    hodnoty.forEach((val, i) => {
+      const k = document.createElement('div');
+      k.className = 'cl-let-k';
+      k.style.width = `${V}px`;
+      k.style.height = `${V}px`;
+      const mrizka = document.createElement('div');
+      mrizka.className = 'cl-kmrizka';
+      k.append(mrizka);
+      vrstva.append(k);
+      this._kostky.push({ el: k, mrizka, val });
 
-    this._anim.onfinish = () => this.dopad(hodnota);
+      const stranou = dve ? (i === 0 ? -V * 0.72 : V * 0.72) : 0;
+      const x0 = a.left + a.width / 2 - r.left - V / 2 + nahodne(26);
+      const y0 = a.top + a.height / 2 - r.top - V / 2 + nahodne(10);
+      const x1 = b.left + b.width / 2 - r.left - V / 2 + stranou + nahodne(16);
+      const y1 = b.top + b.height / 2 - r.top - V / 2 + nahodne(16);
+
+      const smer = Math.random() < 0.5 ? -1 : 1;
+      const otoc = smer * (300 + Math.random() * 620);
+      const vyska = 24 + Math.random() * 26;
+      const trvani = 560 + Math.random() * 160;
+      nejdelsi = Math.max(nejdelsi, trvani);
+
+      const an = k.animate([
+        { transform: `translate(${x0}px,${y0}px) rotate(0deg) scale(.35)`, opacity: 0, offset: 0 },
+        { opacity: 1, offset: .14 },
+        { transform: `translate(${x1}px,${y1 - vyska}px) rotate(${otoc * .8}deg) scale(1.2)`, offset: .58 },
+        { transform: `translate(${x1}px,${y1 + 8}px) rotate(${otoc}deg) scale(.92)`, offset: .74 },
+        { transform: `translate(${x1}px,${y1 - 7}px) rotate(${otoc}deg) scale(1.06)`, offset: .87 },
+        { transform: `translate(${x1}px,${y1}px) rotate(${otoc}deg) scale(1)`, opacity: 1, offset: 1 },
+      ], { duration: trvani, easing: 'cubic-bezier(.25,.9,.35,1)', fill: 'forwards' });
+      this._anim.push(an);
+
+      // Během letu se stěny přebíjejí – výsledek se ukáže až po dopadu.
+      let n = i * 2;
+      this._tocim.push(setInterval(() => this.puntiky(mrizka, 1 + ((n++ * 5 + 2) % 6)), 65));
+
+      an.onfinish = () => { if (--zbyva <= 0) this.dopad(hodnota, kostky); };
+    });
+
     // Pojistka. Když prohlížeč animaci nedokončí – schovaná záložka,
-    // uspaný stroj – `onfinish` nepřijde nikdy, kostka by se přetáčela
+    // uspaný stroj – `onfinish` nepřijde nikdy, kostky by se přetáčely
     // donekonečna a hodnota by se nikdy neukázala. Časovač běží i tam,
     // kde neběží animace, takže dopad zařídí on.
-    this._pojistka = setTimeout(() => this.dopad(hodnota), 900);
+    this._pojistka = setTimeout(() => this.dopad(hodnota, kostky), nejdelsi + 280);
   },
 
   // Dopad se může spustit dvakrát (animace i pojistka), tak ať to nevadí.
-  dopad(hodnota) {
+  dopad(hodnota, kostky) {
     if (!this._leti) return;
     this._leti = false;
     if (this._pojistka) { clearTimeout(this._pojistka); this._pojistka = null; }
-    if (this._tocim) { clearInterval(this._tocim); this._tocim = null; }
+    for (const t of this._tocim || []) clearInterval(t);
+    this._tocim = [];
 
-    const letec = this.root?.querySelector('#clLet');
-    if (!letec) return;
-    this.puntiky(letec.querySelector('.cl-kmrizka'), hodnota);
-    this.kresliKostku(hodnota, this.view?.kostky);
+    const vrstva = this.root?.querySelector('#clLet');
+    if (!vrstva) return;
+    for (const k of this._kostky || []) this.puntiky(k.mrizka, k.val);
+    this.kresliKostku(hodnota, kostky);
 
     // Chvíli podržet, ať je hodnota čitelná, a zmizet.
     this._mizi = setTimeout(() => {
-      const f = letec.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-      const schovej = () => { letec.style.display = 'none'; };
+      const schovej = () => { vrstva.style.display = 'none'; };
+      const f = vrstva.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
       f.onfinish = schovej;
       this._schovej = setTimeout(schovej, 400);   // zase pojistka
     }, 380);
   },
 
   zrusLet() {
-    if (this._tocim) { clearInterval(this._tocim); this._tocim = null; }
+    for (const t of this._tocim || []) clearInterval(t);
+    this._tocim = [];
     if (this._mizi) { clearTimeout(this._mizi); this._mizi = null; }
     if (this._pojistka) { clearTimeout(this._pojistka); this._pojistka = null; }
     if (this._schovej) { clearTimeout(this._schovej); this._schovej = null; }
-    if (this._anim) { this._anim.onfinish = null; this._anim.cancel(); this._anim = null; }
+    for (const a of this._anim || []) { a.onfinish = null; a.cancel(); }
+    this._anim = [];
+    this._kostky = [];
     this._leti = false;
-    const letec = this.root?.querySelector('#clLet');
-    if (letec) { letec.getAnimations().forEach(x => x.cancel()); letec.style.display = 'none'; }
+    const vrstva = this.root?.querySelector('#clLet');
+    if (vrstva) {
+      vrstva.getAnimations().forEach(x => x.cancel());
+      for (const k of vrstva.children) k.getAnimations().forEach(x => x.cancel());
+      vrstva.style.display = 'none';
+    }
   },
 
   puntiky(mrizka, n) {
