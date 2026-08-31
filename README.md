@@ -53,6 +53,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Člověče, nezlob se** – pravidla z předlohy, deska pro 4 i pro 8 hráčů | ✅ |
 | **UNO No Mercy** – 136 karet, oficiální pravidla, tajné ruce | ✅ |
 | **Osadníci z Katanu** – celá pravidla, tajné ruce, obchod mezi hráči | ✅ |
+| **Kvak!** – rybník z 64 skrytých kartiček, 2 až 4 hráči | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
@@ -775,6 +776,70 @@ tahu kontroluje, že **suroviny v rukách plus banka dávají pořád 19 od kaž
 Tahle jedna kontrola chytila víc než všechno ostatní dohromady – karty se
 u Katanu ztrácejí na víc místech, než se člověku zdá (zloděj, monopol,
 zahazování při sedmičce, obchod).
+
+## Kvak!
+
+Rybník je 8×8 kartiček lícem dolů. Každý má královnu a dvě žabky v rohu,
+skáče se o jedno pole všemi směry a kdo skočí na cizí žábu, sežere ji.
+Vyhrává poslední živá královna.
+
+### Hraje se podle pravidel, ne podle předlohy
+
+Přiložené HTML a dodaná pravidla se rozcházela na šesti místech. Držím se
+pravidel:
+
+| | předloha | pravidla (a tedy tady) |
+|---|---|---|
+| hráčů | 2 | 2 až 4 |
+| štika + královna | sežere ji, hráč končí | královna přežije, jen jí končí tah |
+| leknín | nutí hrát jinou žábou | **nepovinný** přeskok na jiný odhalený leknín |
+| sameček | nová žabka na totéž pole + vnucený tah | hráč si vybere volné **sousední** pole |
+| bahno a kláda | ano | v pravidlech nejsou – místo nich voda a rákos |
+| startovní kartičky | zůstávají skryté | ihned se otáčejí lícem nahoru |
+
+### Co pravidla neříkají
+
+Složení balíčku (20 vody, 12 rákosu, po 8 leknínu, komára, štiky a samečka),
+zásoba 4 žabek na hráče a to, že na jedno pole se vejde jen jedna **vlastní**
+žába. Startovní kartičky se rozdávají z bezpečných – kdyby na rohu ležela
+štika, stála by na ní žába od prvního tahu na poli, kam už nikdo nesmí.
+
+### Tři věci, které vylezly z měření
+
+**1. Efekt se spouští při každém vstupu, ne jen při prvním otočení.**
+Napoprvé jsem to udělal „otočíš → vyhodnotíš, pak už je to jen pole“.
+Výsledek: **rozmnožení nenastalo ani jednou za partii**. Samečka skoro
+vždycky odhalí žabka, ne královna, a pro ni je kartička prázdná. Po opravě
+8,3 rozmnožení na partii. Komár se ale **sní** („žába si na něm pochutná“),
+jinak by dvě žáby u jednoho komára táhly do nekonečna.
+
+**2. Rákos nesmí chránit královnu.** Pravidla označují ochranu za nepovinnou
+variantu. S královnou se hra rozbije: naměřeno, že **50 % přeživších královen
+sedělo na konci na rákosu**, kde je nikdo nikdy nemohl chytit. Teď rákos
+kryje jen žabky.
+
+**3. Rybník musí vysychat.** I bez rákosu se dvě královny na 8×8 umí uhýbat
+navždy – z 30 partijí jich skončilo **pět** a zbytek se přehazoval mezi dvěma
+poli (2853 opakovaných pozic ze 3000 tahů). Po 40 tazích bez pokroku
+(otočená nová kartička, vyhozená žába nebo rozmnožení) proto rybník vyschne
+a vyhrává, kdo má víc žab; při shodě rozhoduje počet vyplozených žabek
+a pak tlak na cizí královny. Stejný typ stropu jako `MAX_ROUNDS` u Dostihů.
+
+### Boti
+
+| souboj | výhry | významnost |
+|---|---|---|
+| hard vs easy | 92,0 % | 14,5 σ |
+| normal vs easy | 94,6 % | 15,3 σ |
+| hard vs normal | 72,8 % | 7,3 σ |
+
+(300 partijí na souboj.) Easy nehraje náhodně – jen si mezi slušnými tahy
+vybírá nepřesně a nehídá si královnu. Rozdíl mezi **normal a hard** je jediný:
+tvrdý bot nenechává žabky stát pod úderem a dívá se, jestli si tahem
+neodkryje královnu. Bez toho byly obě úrovně k nerozeznání (1,6 σ).
+
+Hon na královnu nestačí stavět na „postav se vedle ní“ – uhne. Bot proto
+počítá i to, **kolik jí ten tah zavře únikových polí**.
 
 ## Šachy
 
