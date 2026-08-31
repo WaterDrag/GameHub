@@ -594,6 +594,13 @@ až sedm soupeřů – všichni se vejdou do stolu.
 Vějíř se ke stolu naklání jen mírně (35 % úhlu). Při plném natočení by se
 zleva i zprava četl svisle a vypadal jako sloupec.
 
+Místa se počítají v pásu **zúženém o půl jmenovky** (`.un-mista{inset:0 104px}`).
+Bez toho sedí krajní hráči až u okraje stolu a jmenovka se ořízne – a čím širší
+monitor, tím hůř. A protože jména botů už „(bot)“ obsahují, robot navíc se
+přidává jen tam, kde postavu převzal bot za nečinného člověka; jinak by jen
+zabíral místo. Ověřeno se sedmi soupeři a jmény typu „Ohnivzdorný Bacil (bot)“:
+nic oříznutého, nic mimo stůl, a stejně tak na okně širokém 680 px.
+
 ### Karty v ruce jsou tajné
 
 Tohle je hlavní důvod, proč hra běží na serveru. V předloze ležely **všechny

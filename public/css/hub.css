@@ -1452,7 +1452,11 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   border:1px solid var(--brd);
   overflow:hidden;
 }
-.un-mista{position:absolute; inset:0; pointer-events:none}
+.un-mista{
+  /* Vodorovně zúžené o půl jmenovky. Bez toho krajní hráči sedí až
+     u okraje stolu a jmenovka se ořízne – čím širší monitor, tím hůř. */
+  position:absolute; inset:0 104px; pointer-events:none;
+}
 
 .un-misto{
   position:absolute; transform:translate(-50%,-50%);
@@ -1485,7 +1489,7 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 }
 .un-jmeno{
   font-size:.72rem; font-weight:700; letter-spacing:.03em;
-  max-width:140px; overflow:hidden; text-overflow:ellipsis;
+  max-width:170px; overflow:hidden; text-overflow:ellipsis;
 }
 .un-misto.on .un-jmeno{color:var(--warn)}
 .un-jmenovka b{
@@ -1617,7 +1621,8 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 
 @media (max-width:720px){
   .un{--un-karta-s:56px; --un-karta-v:84px; padding:7px}
-  .un-jmeno{font-size:.62rem; max-width:74px}
+  .un-jmeno{font-size:.62rem; max-width:92px}
+  .un-mista{inset:0 58px}
   .un-hromadky{gap:11px}
   .un-vejir i{width:16px; height:24px; margin-right:-9px}
 }

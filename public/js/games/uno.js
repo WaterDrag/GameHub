@@ -237,7 +237,11 @@ export default {
 
     soupeRi.forEach((h, i) => {
       const p = this.ctx.players.find(x => x.uid === v.seats[h]);
-      const jmeno = (p?.name || 'Hráč') + (p?.bot || p?.botControlled ? ' 🤖' : '');
+      // Jména botů už „(bot)“ obsahují, takže robot navíc jen zabírá
+      // místo ve jmenovce. Přidává se jen tam, kde postavu převzal bot
+      // za nečinného člověka – tam to jinak nepoznáš.
+      const zaklad = p?.name || 'Hráč';
+      const jmeno = zaklad + (p?.botControlled && !/\(bot\)/i.test(zaklad) ? ' 🤖' : '');
       const ven = v.vyrazeni.includes(h);
       const m = this.misto(i, soupeRi.length);
 
