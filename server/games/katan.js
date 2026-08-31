@@ -26,6 +26,7 @@ import {
 const TAH_MS = 120000;     // kolik má člověk na tah
 const BOT_MS = 700;
 const NABIDKA_MS = 1400;  // jak dlouho boti „premysli“ nad nabidkou
+const NABIDKA_CEKANI = 8000;  // jak dlouho bot po sve nabidce ceka na odpoved
 const LOG_MAX = 10;
 
 // ── Bot ──────────────────────────────────────────────────────
@@ -125,7 +126,7 @@ export default {
   createState({ players, rng }) {
     const seats = rng.shuffle(players.map(p => p.uid));
     const hra = novaHra(seats.length, rng);
-    const state = { hra, seats, deadline: 0, botAt: 0, nabidkaAt: 0 };
+    const state = { hra, seats, deadline: 0, botAt: 0, nabidkaAt: 0, nabidlSeat: null };
     this.prepocti(state, null);
     return state;
   },
@@ -213,7 +214,32 @@ export default {
     const zmena = novy.akci !== state.hra.akci;
     state.hra = novy;
     if (zmena && novy.hlaska) ctx?.emit?.('hlaska', { text: novy.hlaska });
+    if (ctx?.rng) this.zahodLosem(state, ctx);
     this.prepocti(state, ctx);
+  },
+
+  // ── Sedmička ──────────────────────────────────────
+  //  Přání uživatele: hráč si nevybírá, co zahodí – bere se los. Losuje se
+  //  z KARET, ne ze surovin, takže kdo má šest dřeva, přijde o dřevo spíš
+  //  než ten, kdo má jedno. Fáze `zahazuje` tím nikdy nedoteče ke klientu.
+  zahodLosem(state, ctx) {
+    for (let straz = 0; straz < 12; straz++) {
+      const s = state.hra;
+      if (s.faze !== 'zahazuje') return;
+      const h = Object.keys(s.zahazuji).map(Number)[0];
+      if (h === undefined) return;
+
+      const ruka = [];
+      for (const r of SUROVINY) for (let i = 0; i < s.suroviny[h][r]; i++) ruka.push(r);
+      const co = Object.fromEntries(SUROVINY.map(r => [r, 0]));
+      let kolik = Math.min(s.zahazuji[h], ruka.length);
+      while (kolik-- > 0) co[ruka.splice(ctx.rng.int(0, ruka.length - 1), 1)[0]]++;
+
+      const novy = zahod(s, h, co);
+      if (novy.akci === s.akci) return;   // nepovedlo se – radši ven než dočista
+      state.hra = novy;
+      ctx?.emit?.('zahozeno', { seat: h, co });
+    }
   },
 
   // ── Hodiny ─────────────────────────────────────────────────
@@ -244,21 +270,8 @@ export default {
     const s = state.hra;
     const rng = ctx.rng;
 
-    // Zahazování řeší i hráči mimo tah.
-    if (s.faze === 'zahazuje') {
-      const h = Object.keys(s.zahazuji).map(Number)[0];
-      const kolik = s.zahazuji[h];
-      const co = Object.fromEntries(SUROVINY.map(r => [r, 0]));
-      let zbyva = kolik;
-      const kopie = { ...s.suroviny[h] };
-      while (zbyva > 0) {
-        let nej = SUROVINY[0];
-        for (const r of SUROVINY) if (kopie[r] > kopie[nej]) nej = r;
-        if (kopie[nej] <= 0) break;
-        kopie[nej]--; co[nej]++; zbyva--;
-      }
-      return this.uprav(state, zahod(s, h, co), ctx);
-    }
+    // Zahazování už je vyřešené losem ve `zahodLosem`; sem se to nedostane.
+    if (s.faze === 'zahazuje') return this.zahodLosem(state, ctx);
 
     const h = s.naTahu;
     const hrac = ctx.players?.find(p => p.uid === state.seats[h]);
@@ -285,6 +298,7 @@ export default {
     }
 
     if (s.faze === 'hod') {
+      state.nabidlSeat = null;   // každý tah smí bot nabídnout jednou
       // Rytíře se vyplatí zahrát před hodem – zloděj se dá odstranit
       // z vlastního pole ještě dřív, než začne výroba.
       if (level === 'hard' && lzeZahratKartu(s, h, 'rytir') && this.zlodejMiVadi(s, h)) {
@@ -372,6 +386,9 @@ export default {
       }
     }
 
+    // Obchod s hráči se zkouší dřív než banka – 1:1 je vždycky lepší než 4:1.
+    if (this.botNabidni(state, ctx, level)) return;
+
     // Obchod s bankou, když má bot přebytek a něco mu chybí.
     if (level !== 'easy') {
       const chybi = this.coChybi(s, h);
@@ -431,6 +448,40 @@ export default {
       this.uprav(state, zrusNabidku(s), ctx);
       ctx?.emit?.('hlaska', { text: 'Nabídku nikdo nepřijal.' });
     }
+  },
+
+  // Bot nabídne obchod, když mu k další stavbě chybí málo a něčeho má moc.
+  // Nabízí jednou za tah – jinak by po každém odmítnutí zkoušel znovu a tah
+  // by nikdy neskončil.
+  botNabidni(state, ctx, level) {
+    const s = state.hra;
+    const h = s.naTahu;
+    if (level === 'easy' || s.nabidka || state.nabidlSeat === h) return false;
+
+    const chybi = this.coChybi(s, h);
+    if (!chybi.length || chybi.length > 2) return false;
+
+    // Rozdává se z toho, čeho má nejvíc a co k cíli nepotřebuje.
+    let nej = null;
+    for (const r of SUROVINY) {
+      if (chybi.includes(r) || s.suroviny[h][r] < 3) continue;
+      if (!nej || s.suroviny[h][r] > s.suroviny[h][nej]) nej = r;
+    }
+    if (!nej) return false;
+
+    const prazdno = () => Object.fromEntries(SUROVINY.map(r => [r, 0]));
+    const dava = prazdno(), chce = prazdno();
+    // Tvrdý bot přihodí druhou kartu, když mu ta jedna dokončí stavbu.
+    dava[nej] = (level === 'hard' && chybi.length === 1 && s.suroviny[h][nej] >= 4) ? 2 : 1;
+    chce[chybi[0]] = 1;
+
+    const novy = nabidni(s, dava, chce);
+    if (novy.akci === s.akci) return false;
+    this.uprav(state, novy, ctx);
+    state.nabidlSeat = h;
+    // Nabídka musí chvíli viset, ať na ni stihne někdo odpovědět.
+    state.botAt = Date.now() + NABIDKA_CEKANI;
+    return true;
   },
 
   chceNabidku(s, h, level) {

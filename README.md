@@ -699,10 +699,28 @@ Běží vždycky jen jedna nabídka a vidí ji všichni. Kdo ji přijme první, 
 obchoduje – stejně jako u stolu, kde se křičí „berím“. Server před výměnou
 znovu ověří, že obě strany na to mají; mezitím totiž mohla přijít sedmička.
 
-Boti nabídku sami nevymyslí, ale umí ji posoudit – berou to, co je posune blíž
-k další stavbě, a tvrdý bot nepodrží toho, kdo má osm a víc bodů. Když nabídku
-nikdo nechce a není už kdo by ji přijal, sama padne, ať hráč nečumí na něco,
-co se nikdy nevyřeší.
+Boti obchodují **na obě strany** – s hráčem i mezi sebou.
+
+*Přijímají* to, co je posune blíž k další stavbě (měřítkem je `coChybi()`);
+tvrdý bot nepodrží toho, kdo má osm a víc bodů. *Nabízejí* jednou za tah,
+když jim k další stavbě chybí nejvýš dvě suroviny a něčeho mají aspoň tři –
+dávají z přebytku, chtějí to, co jim chybí. Tvrdý přihodí druhou kartu,
+když mu ta jedna dokončí stavbu; easy nenabízí vůbec. Zkouší se to **dřív než
+banka** – 1:1 od hráče je vždycky lepší než 4:1 od banky.
+
+Po své nabídce bot 8 s čeká, ať na ni stihne někdo odpovědět. Když ji nikdo
+nechce a není už kdo by ji přijal, sama padne – ať se hra nezastaví.
+
+Naměřeno na 40 partijích čtyř botů: **5,5 nabídky na partii, z toho 23 %
+přijato** (1,3 uzavřeného obchodu). Rozdíl mezi úrovněmi to nerozhodilo.
+
+### Sedmička bere karty losem
+
+Kdo má přes sedm karet, přijde o polovinu – ale **nevybírá si, o kterou**
+(přání uživatele). Losuje se z karet, ne ze surovin, takže kdo má šest dřeva,
+přijde o dřevo spíš než ten, kdo má jedno. Fáze `zahazuje` zůstala v pravidlech
+(a testuje se), ale server ji vyřeší hned ve `zahodLosem()`, takže ke klientu
+nikdy nedoteče – hráč jen dostane hlášku, o co přišel.
 
 ### Stavění je na dvě kliknutí
 

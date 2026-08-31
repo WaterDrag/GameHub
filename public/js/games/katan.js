@@ -294,13 +294,24 @@ export default {
 
   update(view) { this.view = view; this.render(view); },
   event(m) {
-    if (m?.kind !== 'hlaska' || !m.text) return;
+    if (m?.kind === 'zahozeno') {
+      // Karty bere los, takže hráč musí aspoň vědět, o co přišel.
+      const moje = m.seat === this.view?.mySeat;
+      const kdo = this.ctx.players.find(x => x.uid === this.view?.seats[m.seat]);
+      return this.hlaska(moje
+        ? `Sedmička ti vzala ${hromadka(m.co)}`
+        : `${kdo?.name || 'Hráč'} přišel o ${hromadka(m.co)}`, moje ? 5000 : 3000);
+    }
+    if (m?.kind === 'hlaska' && m.text) this.hlaska(m.text, 3500);
+  },
+
+  hlaska(text, ms = 3500) {
     const el = this.root?.querySelector('#kaHlaska');
     if (!el) return;
-    el.textContent = m.text;
+    el.textContent = text;
     el.classList.remove('hidden');
     clearTimeout(this._hlaskaT);
-    this._hlaskaT = setTimeout(() => el.classList.add('hidden'), 3500);
+    this._hlaskaT = setTimeout(() => el.classList.add('hidden'), ms);
   },
 
   // ── Vykreslení ─────────────────────────────────────────────
@@ -406,7 +417,7 @@ export default {
       rozmisteni: v.myTurn ? 'Rozmísti osadu a silnici' : 'Rozmísťuje se',
       hod: v.myTurn ? 'Hoď kostkami' : 'Hází se',
       akce: v.myTurn ? 'Stav, obchoduj, nebo ukonči tah' : 'Hraje se',
-      zahazuje: v.musimZahodit ? `Zahoď ${v.musimZahodit} karet` : 'Ostatní zahazují',
+      zahazuje: 'Sedmička bere karty…',
       zlodej: v.myTurn ? 'Vyber pole pro zloděje' : 'Přesouvá se zloděj',
       krade: v.myTurn ? 'Vyber, koho okradeš' : 'Krade se',
     }[v.faze] || '';
@@ -660,9 +671,8 @@ export default {
   renderModal(v) {
     const box = this.root.querySelector('#kaModal');
     // Zahazování a krádež jdou ze stavu, ostatní si otevírá hráč sám.
-    if (v.musimZahodit) return this.otevriZahazovani(v);
     if (v.myTurn && v.faze === 'krade' && v.obeti.length) return this.otevriKradez(v);
-    if (this.modal === 'zahod' || this.modal === 'krade') this.zavri();
+    if (this.modal === 'krade') this.zavri();
     if (this.modal === 'nabidka' && (!v.myTurn || v.faze !== 'akce' || v.nabidka)) this.zavri();
   },
 
@@ -677,41 +687,6 @@ export default {
     this.root.querySelector('#kaModalBox').innerHTML = html;
     box.classList.remove('hidden');
     return this.root.querySelector('#kaModalBox');
-  },
-
-  otevriZahazovani(v) {
-    if (this.modal === 'zahod' && this._zahodPro === v.musimZahodit) return;
-    this._zahodPro = v.musimZahodit;
-    this.zahod = Object.fromEntries(SUROVINY.map(r => [r, 0]));
-    const box = this.otevri('zahod', `
-      <div class="ka-modal-nadpis">Zahoď ${v.musimZahodit} karet</div>
-      <div class="ka-vyber" id="kaZahodVyber"></div>
-      <button class="ka-btn hlavni" id="kaZahodOk" type="button">Zahodit</button>`);
-    const kresli = () => {
-      const vyber = box.querySelector('#kaZahodVyber');
-      vyber.innerHTML = '';
-      for (const r of SUROVINY) {
-        const mam = v.suroviny?.[r] ?? 0;
-        const d = document.createElement('div');
-        d.className = 'ka-vyber-radek';
-        d.innerHTML = `<span>${SUROVINA_INFO[r].emoji} ${SUROVINA_INFO[r].nazev}</span>
-          <span class="ka-pocitadlo"><button type="button">−</button><b>${this.zahod[r]}</b>
-          <button type="button">+</button><small>z ${mam}</small></span>`;
-        const [minus, plus] = d.querySelectorAll('button');
-        minus.onclick = () => { if (this.zahod[r] > 0) { this.zahod[r]--; kresli(); } };
-        plus.onclick = () => {
-          const celkem = SUROVINY.reduce((a, x) => a + this.zahod[x], 0);
-          if (this.zahod[r] < mam && celkem < v.musimZahodit) { this.zahod[r]++; kresli(); }
-        };
-        vyber.append(d);
-      }
-      const celkem = SUROVINY.reduce((a, x) => a + this.zahod[x], 0);
-      const ok = box.querySelector('#kaZahodOk');
-      ok.disabled = celkem !== v.musimZahodit;
-      ok.textContent = `Zahodit (${celkem}/${v.musimZahodit})`;
-      ok.onclick = () => { this.posli({ a: 'zahod', co: this.zahod }); this.zavri(); };
-    };
-    kresli();
   },
 
   otevriKradez(v) {

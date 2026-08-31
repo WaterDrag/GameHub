@@ -357,6 +357,86 @@ function zapas(seed, levely) {
     'nezasekne se do konce tahu');
 }
 
+// ── Sedmička bere karty losem ────────────────────────
+{
+  const prazdno = () => ({ drevo: 0, cihla: 0, vlna: 0, obili: 0, ruda: 0 });
+  const rng = makeRng(909);
+  const players = Array.from({ length: 3 }, (_, i) => ({ uid: 'P' + i, name: 'H' + i }));
+  const ctx = { rng, players, reject: () => {}, emit: () => {} };
+  const state = hra.createState({ players, rng });
+  const s = state.hra;
+  s.faze = 'hod';
+  s.naTahu = 0;
+  s.suroviny[0] = { ...prazdno(), drevo: 6, cihla: 6 };   // 12 karet → zahodí 6
+  s.suroviny[1] = { ...prazdno(), vlna: 3 };              // pod limitem
+  s.suroviny[2] = { ...prazdno(), obili: 9 };             // 9 karet → zahodí 4
+
+  const bankaPred = SUROVINY.reduce((a, r) => a + s.banka[r], 0);
+  hra.uprav(state, hod(s, 3, 4), ctx);
+  const po = state.hra;
+  zkus('fáze zahazování se nezastaví', po.faze === 'zlodej', po.faze);
+  zkus('nikdo už nemá co zahazovat', Object.keys(po.zahazuji).length === 0, 'prázdné');
+  zkus('kdo měl 12, přišel o 6', kolikKaret(po.suroviny[0]) === 6, `${kolikKaret(po.suroviny[0])} karet`);
+  zkus('kdo měl 9, přišel o 4', kolikKaret(po.suroviny[2]) === 5, `${kolikKaret(po.suroviny[2])} karet`);
+  zkus('kdo měl 3, nepřišel o nic', kolikKaret(po.suroviny[1]) === 3, `${kolikKaret(po.suroviny[1])} karet`);
+  const bankaPo = SUROVINY.reduce((a, r) => a + po.banka[r], 0);
+  zkus('zahozené karty přibyly v bance', bankaPo - bankaPred === 10,
+    `banka +${bankaPo - bankaPred}, zahozeno 6+4`);
+
+  // Los, ne „nejdřív čeho mám nejvíc“: při 6 dřeva a 6 cihel by výběr
+  // podle počtu vzal 3 a 3 pokaždé. Na víc seedech to má kolísat.
+  const rozlozeni = new Set();
+  for (let i = 0; i < 12; i++) {
+    const rng2 = makeRng(3000 + i);
+    const ctx2 = { rng: rng2, players, reject: () => {}, emit: () => {} };
+    const st2 = hra.createState({ players, rng: rng2 });
+    st2.hra.faze = 'hod'; st2.hra.naTahu = 0;
+    st2.hra.suroviny[0] = { ...prazdno(), drevo: 6, cihla: 6 };
+    st2.hra.suroviny[1] = prazdno(); st2.hra.suroviny[2] = prazdno();
+    hra.uprav(st2, hod(st2.hra, 3, 4), ctx2);
+    rozlozeni.add(st2.hra.suroviny[0].drevo);
+  }
+  zkus('losuje se, nebere se vždy totéž', rozlozeni.size > 1,
+    `zbylo dřeva: ${[...rozlozeni].sort((a, b) => a - b).join(', ')}`);
+}
+
+// ── Boti nabízejí obchod sami ───────────────────────
+{
+  const prazdno = () => ({ drevo: 0, cihla: 0, vlna: 0, obili: 0, ruda: 0 });
+  const rng = makeRng(1212);
+  const players = Array.from({ length: 3 }, (_, i) => ({
+    uid: 'P' + i, name: 'H' + i, bot: true, botLevel: 'normal',
+  }));
+  const ctx = { rng, players, reject: () => {}, emit: () => {} };
+  const state = hra.createState({ players, rng });
+  const s = state.hra;
+  s.faze = 'akce';
+  s.naTahu = 0;
+  state.nabidlSeat = null;
+  // Na silnici chybí cihla, vlny je plná ruka.
+  s.suroviny[0] = { ...prazdno(), drevo: 1, vlna: 5 };
+  s.suroviny[1] = { ...prazdno(), cihla: 2 };
+  s.suroviny[2] = prazdno();
+
+  const nabidl = hra.botNabidni(state, ctx, 'normal');
+  zkus('bot obchod nabídne sám', nabidl && !!state.hra.nabidka,
+    JSON.stringify(state.hra.nabidka && { dava: state.hra.nabidka.dava, chce: state.hra.nabidka.chce }));
+  zkus('dává to, čeho má nejvíc', state.hra.nabidka?.dava.vlna > 0, 'vlnu');
+  zkus('chce, co mu chybí', state.hra.nabidka?.chce.cihla === 1, 'cihlu');
+  zkus('podruhé v tomže tahu už nenabízí',
+    hra.botNabidni(state, ctx, 'normal') === false, 'jednou za tah');
+  zkus('easy bot nenabízí vůbec', (() => {
+    const st = hra.createState({ players, rng: makeRng(7) });
+    st.hra.faze = 'akce'; st.hra.naTahu = 0;
+    st.hra.suroviny[0] = { ...prazdno(), drevo: 1, vlna: 5 };
+    return hra.botNabidni(st, ctx, 'easy') === false;
+  })(), 'není na to dost chytrý');
+
+  // Druhý bot má cihlu a chybí mu vlna → měl by vzít.
+  hra.botNabidka(state, ctx);
+  zkus('nabídku bota vyřeší jiný bot', state.hra.nabidka === null, 'vyřešeno');
+}
+
 // ── Výpis ────────────────────────────────────────────────────
 console.log('\n=== Osadníci z Katanu ===');
 for (const v of vysledky) console.log(`  ${v.ok ? '✓' : '✗'} ${v.popis.padEnd(44)} ${v.detail}`);
