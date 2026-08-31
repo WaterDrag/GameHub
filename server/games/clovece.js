@@ -178,6 +178,11 @@ export default {
     const h = Math.max(2, pocetHracu);
     const popisky = {};
     for (const n of [4, 3, 2, 1]) popisky[n] = odhadText(out.mapa, h, n);
+    // Odhad je NAMĚŘENÝ pro hru bez módů. S módy vychází jinak (Double
+    // trouble ji zkracuje skoro na polovinu), a tabulka pro všech 128
+    // kombinací by byla nesmysl – tak se aspoň řekne, že módy do toho
+    // nejsou započítané.
+    const modu = MODY.filter(x => out[x.id]).length;
     return {
       options: out,
       zamky,
@@ -185,6 +190,7 @@ export default {
         figurek: popisky,
         odhad: odhadText(out.mapa, h, out.figurek),
         odhadHodu: odhadHodu(out.mapa, h, out.figurek),
+        odhadPozn: modu ? 'bez módů – ty partii obvykle zkrátí' : null,
       },
     };
   },

@@ -500,7 +500,9 @@ function renderRoom() {
       ob.append(el('div', { class: 'opt-odhad' },
         el('span', { text: '⏱ Odhad délky partie: ' }),
         el('b', { text: r.optionInfo.odhad }),
-        el('small', { text: ' (změřeno na botech, ne slib)' }),
+        el('small', { text: r.optionInfo.odhadPozn
+          ? ` (${r.optionInfo.odhadPozn})`
+          : ' (změřeno na botech, ne slib)' }),
       ));
     }
     if (!amHost) ob.append(el('div', { class: 'opt-pozn', text: 'Nastavení mění hostitel.' }));

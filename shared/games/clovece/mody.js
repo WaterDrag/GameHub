@@ -20,7 +20,7 @@ export const MODY = [
     id: 'double',
     nazev: 'Double trouble',
     emoji: '🎲',
-    popis: 'Hází se dvěma kostkami a platí jejich součet (2–12). O jedno pole se posunout nedá.',
+    popis: 'Dvě kostky, platí součet (2–12). O jedno pole se posunout nedá. Na dvou stejných se hází znovu.',
   },
   {
     id: 'sniper',

@@ -686,7 +686,7 @@ v prohlíeči, a vidí ji všichni stejně.
 | Mód | Co dělá |
 |---|---|
 | 🐸 **Žába** | Když můžeš přeskočit cizí figurku, musíš. Jako braní v dámě. |
-| 🎲 **Double trouble** | Hází se dvěma kostkami, platí součet (2–12). |
+| 🎲 **Double trouble** | Dvě kostky, platí součet (2–12). Na dvou stejných se hází znovu. |
 | 🎯 **Sniper** | Kdo vejde do domečku, sundá jednu soupeřovu figurku z dráhy. |
 | ⚔️ **Sacrifice** | Místo hodu obětuj dvě svoje figurky z dráhy za jednu soupeřovu. |
 | ↩️ **Boomerang** | Za 1 až 3 smíš couvat. Od čtyřky výš se musí dopředu. |
@@ -714,6 +714,19 @@ Rozhodnutí: **couvnutí žábu nikdy nespustí** (směr dozadu je Boomerangova
 věc), ale když už se žába spustí přeskokem dopředu, je to donucení jako
 každé jiné – v tom tahu se couvat nesmí. Nezávislost módů je tedy v tom,
 CO mód spouští, ne v tom, co po něm zbyde na výběr.
+
+#### Dvě stejné = hází se znovu
+
+Na dvojici se tah nezastavuje – a to i tehdy, když není čím táhnout; pokus se
+v tom případě neubere. Šestka jako důvod k dalšímu hodu platí dál, takže
+šance na hod navíc je asi 28 %. Partie se tím prodlouží ze 167 na 180 hodů,
+což je pořád hluboko pod základní hrou (434).
+
+#### Odhad délky módy nezná
+
+Tabulka je naměřená pro hru **bez módů**. S nimi vychází jinak – Double
+trouble ji zkrátí skoro na polovinu. Tabulka pro všech 128 kombinací by byla
+nesmysl, takže čekárna místo toho říká, že módy započítané nejsou.
 
 #### Dvě kostky a přesný doskok
 

@@ -6,7 +6,7 @@
 import hra from '../server/games/clovece.js';
 import {
   tahy, maxPokusu, hotovych, novaHra, hod, tah, snipe, sniperCile,
-  obetuj, lzeObetovat, cesta, zabaOmezuje,
+  obetuj, lzeObetovat, cesta, zabaOmezuje, jeDvojice,
 } from '../shared/games/clovece/pravidla.js';
 import { MODY, NERVY_SANCE } from '../shared/games/clovece/mody.js';
 import { MAPA_PODLE, okruh } from '../shared/games/clovece/const.js';
@@ -367,6 +367,41 @@ function zapas(seed, levely, mody = {}) {
   s2.poz[0][0] = O2 + 2;               // předposlední políčko cíle
   const zadny = [2,3,4,5,6,7,8,9,10,11,12].every(k => !tahy(s2, 0, k).some(x => x.fig === 0));
   zkus('předposlední pole cíle je s dvojkostkou koncová', zadny, 'na poslední by byla potřeba jednička');
+}
+
+// ── 9b. Dvě stejné = hází se znovu ─────────────────────
+{
+  // S tahem: po něm zůstávám na tahu.
+  const s = novaHra('mala', 2, 4, { double: true });
+  s.poz[0][0] = 5;
+  const poHodu = hod(s, 6, [3, 3]);
+  zkus('dvojice se pozná', jeDvojice(poHodu) === true, '3 + 3');
+  const poTahu = tah(poHodu, 0, false);
+  zkus('po dvojici zůstávám na tahu', poTahu.naTahu === 0, `na tahu ${poTahu.naTahu}`);
+  zkus('a řekne se proč', poTahu.hlaska?.mod === 'double', poTahu.hlaska?.text || 'nic');
+
+  // Různé hodnoty se součtem 6 – znovu se hází kvůli šestce, ne kvůli dvojici.
+  const u = novaHra('mala', 2, 4, { double: true });
+  u.poz[0][0] = 5;
+  const uPo = tah(hod(u, 6, [2, 4]), 0, false);
+  zkus('součet 6 bez dvojice pořád dává hod navíc', uPo.naTahu === 0, `na tahu ${uPo.naTahu}`);
+
+  // Součet 7 bez dvojice – tah končí.
+  const v = novaHra('mala', 2, 4, { double: true });
+  v.poz[0][0] = 5;
+  const vPo = tah(hod(v, 7, [3, 4]), 0, false);
+  zkus('různé kostky tah ukončí', vPo.naTahu === 1, `na tahu ${vPo.naTahu}`);
+
+  // Dvojice BEZ tahu: tah taky nekončí a pokus se neubere.
+  const w = novaHra('mala', 2, 4, { double: true });   // všechny v domečku
+  const wPo = hod(w, 4, [2, 2]);
+  zkus('dvojice bez tahu tah neukončí', wPo.naTahu === 0, `na tahu ${wPo.naTahu}`);
+  zkus('a neubere pokus', wPo.pokusy === null, String(wPo.pokusy));
+
+  // Bez módu se nic takového neděje.
+  const x = novaHra('mala', 2, 4, {});
+  x.poz[0][0] = 5;
+  zkus('bez Double trouble dvojice neplatí', jeDvojice({ ...x, kostky: [3, 3] }) === false, 'vypnuto');
 }
 
 // ── 10. Boomerang ──────────────────────────────────

@@ -91,6 +91,10 @@ export function obsazeniDrahy(s) {
 
 const mamNaKroku = (s, hrac, krok) => s.poz[hrac].some(k => k === krok);
 
+// Padly u Double trouble dvě stejné? Na těch se tah nezastavuje.
+export const jeDvojice = (s) => !!(s.mody?.double && s.kostky
+  && s.kostky.length === 2 && s.kostky[0] === s.kostky[1]);
+
 // Políčka, přes která figurka po cestě přejde (bez výchozího i cílového).
 // Jen dráha – v cíli ani v domečku není koho přeskakovat.
 export function cesta(s, hrac, z, na) {
@@ -212,10 +216,21 @@ export function hod(s, hodnota, kostky = null) {
     return n;
   }
 
+  // Double trouble: na dvou stejných se tah nekončí ani tehdy, když
+  // není čím táhnout. Pokus se neubírá – hráč prostě hází znovu.
+  if (jeDvojice(n)) {
+    n.kostka = null;
+    n.kostky = null;
+    n.hozeno = false;
+    rekni(n, 'double', `Dvě ${kostky[0]}ky – házíš znovu.`);
+    return n;
+  }
+
   // Není čím táhnout – ubereme pokus.
   const max = maxPokusu(n);
   const zbyva = (n.pokusy ?? max) - 1;
   n.kostka = null;
+  n.kostky = null;
   n.hozeno = false;
   if (zbyva <= 0) {
     n.pokusy = null;
@@ -271,7 +286,11 @@ export function tah(s, fig, couv = false, nahoda = 1) {
     return n;
   }
 
-  const znovu = n.kostka === 6;   // šestka = házíš znovu
+  // Šestka = házíš znovu. U Double trouble k tomu ještě dvě stejné –
+  // na těch se tah nezastavuje.
+  const dvojice = jeDvojice(n);
+  const znovu = n.kostka === 6 || dvojice;
+  if (dvojice && !n.hlaska) rekni(n, 'double', `Dvě ${n.kostky[0]}ky – házíš znovu.`);
   n.hozeno = false;
   n.kostka = null;
   n.kostky = null;
