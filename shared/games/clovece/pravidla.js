@@ -228,13 +228,16 @@ export function hod(s, hodnota, kostky = null) {
 
 // ── Tah figurkou ─────────────────────────────────────────────
 // `nahoda` je číslo 0–1 od serveru, potřebné jen pro mód Nervy.
-export function tah(s, fig, nahoda = 1) {
+// Tah se pozná podle figurky A SMĚRU. S Boomerangem má jedna figurka dva
+// legální tahy – dopředu a dozadu – a samotné číslo figurky by je
+// nerozlišilo: couvnutí by šlo zahrát jen tam, kde dopředu nejde vůbec.
+export function tah(s, fig, couv = false, nahoda = 1) {
   const n = kopie(s);
   if (n.vitez !== null || !n.hozeno || n.sniper) return n;
   const m = mapaHry(n);
   const O = okruh(m);
 
-  const t = tahy(n).find(x => x.fig === fig);
+  const t = tahy(n).find(x => x.fig === fig && !!x.couv === !!couv);
   if (!t) return n;      // neplatný tah se prostě neprovede
   n.akci++;
   n.hlaska = null;

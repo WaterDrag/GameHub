@@ -75,10 +75,34 @@ function ohodnot(s, t, tvrdy) {
 
   // Těžký bot navíc kouká, kam se tím postaví. Tah se doopravdy zkusí –
   // pravidla jsou čistá funkce, takže to nic nerozbije.
-  const po = tah(s, t.fig);
+  const po = tah(s, t.fig, t.couv);
   v -= ohrozeni(po, s.naTahu, t.na) * 20;
   v += ohrozeni(s, s.naTahu, t.z) * 14;      // utéct z ohroženého pole je taky zisk
   return v;
+}
+
+// Vyplatí se teď obětovat? Dvě figurky za jednu stojí za to jen tehdy,
+// když je cíl výrazně dál než ty moje, kterých se vzdávám.
+function obetTah(s, level) {
+  if (level === 'easy') return null;          // easy neplánuje
+  if (!lzeObetovat(s)) return null;
+  const moje = obetovatelne(s).sort((a, b) => s.poz[s.naTahu][a] - s.poz[s.naTahu][b]);
+  const cile = sniperCile(s, s.naTahu);
+  if (moje.length < 2 || !cile.length) return null;
+
+  let nej = cile[0];
+  for (const c of cile) if (s.poz[c.hrac][c.fig] > s.poz[nej.hrac][nej.fig]) nej = c;
+
+  // Práh je NAMĚŘENÝ, ne odhadnutý. Bot, který obětuje při každé
+  // příležitosti, prohrává (38,2 % výher proti botovi, co neobětuje,
+  // −5,3 σ) – dvě figurky do domečku jsou v Člověče drahé, protože
+  // zpátky se dostanou jen za šestku. Až kolem prahu 8 je to vyrovnané.
+  // Nižší číslo by boty poškodilo, vyšší by mód nikdy nespustilo.
+  const cena = s.poz[s.naTahu][moje[0]] + s.poz[s.naTahu][moje[1]];
+  const zisk = s.poz[nej.hrac][nej.fig];
+  const prah = level === 'hard' ? 8 : 12;
+  if (zisk - cena < prah) return null;
+  return { a1: moje[0], a2: moje[1], hrac: nej.hrac, fig: nej.fig };
 }
 
 function vyberTah(s, level, rng) {
@@ -238,8 +262,11 @@ export default {
       if (s.sniper) return ctx.reject(player, 'Nejdřív vyber, koho sundáš.');
       if (!s.hozeno) return ctx.reject(player, 'Nejdřív hoď kostkou.');
       const fig = msg.fig | 0;
-      if (!tahy(s).some(t => t.fig === fig)) return ctx.reject(player, 'Touhle figurkou to nejde.');
-      return this.tahnout(state, fig, ctx);
+      const couv = !!msg.couv;
+      if (!tahy(s).some(t => t.fig === fig && !!t.couv === couv)) {
+        return ctx.reject(player, 'Takhle to touhle figurkou nejde.');
+      }
+      return this.tahnout(state, fig, couv, ctx);
     }
 
     if (msg.a === 'snipe') {
@@ -306,14 +333,14 @@ export default {
     this.prepocti(state, ctx);
   },
 
-  tahnout(state, fig, ctx) {
+  tahnout(state, fig, couv, ctx) {
     const s = state.hra;
     const kdo = this.jmeno(ctx, state.seats[s.naTahu]);
-    const t = tahy(s).find(x => x.fig === fig);
+    const t = tahy(s).find(x => x.fig === fig && !!x.couv === !!couv);
     const sest = s.kostka === 6;
 
     // Náhodu pro Nervy losuje server, aby si ji klient nemohl vybrat.
-    state.hra = tah(s, fig, ctx.rng());
+    state.hra = tah(s, fig, !!couv, ctx.rng());
     const n = state.hra;
 
     // Hlášku módu píšeme vždycky – hráč musí vědět, proč se stalo,
@@ -363,7 +390,7 @@ export default {
         return;
       }
       const t = tahy(s);
-      if (t.length === 1) return this.tahnout(state, t[0].fig, ctx);
+      if (t.length === 1) return this.tahnout(state, t[0].fig, t[0].couv, ctx);
       // Kostka padla, ale není čím táhnout – tenhle stav pravidla neumí
       // vytvořit (hod() by tah rovnou přepnul), takže jen dorovnáme lhůty.
       state.autoAt = 0;
@@ -394,10 +421,16 @@ export default {
       return this.sniprout(state, vyber.hrac, vyber.fig, ctx);
     }
 
-    if (!s.hozeno) return this.hodit(state, ctx);
+    if (!s.hozeno) {
+      // Než hodí: nevyplatí se radši obětovat? Stojí to celý tah, takže
+      // se to dělá místo hodu, ne vedle něj.
+      const ob = obetTah(s, level);
+      if (ob) return this.obetovat(state, ob.a1, ob.a2, ob.hrac, ob.fig, ctx);
+      return this.hodit(state, ctx);
+    }
     const t = vyberTah(s, level, ctx.rng);
     if (!t) { state.botAt = 0; return; }
-    return this.tahnout(state, t.fig, ctx);
+    return this.tahnout(state, t.fig, t.couv, ctx);
   },
 
   // ── Bot ────────────────────────────────────────────────────

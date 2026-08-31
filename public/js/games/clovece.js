@@ -208,8 +208,17 @@ export default {
 
     if (!v.myTurn || !v.hozeno) return;
     if (hrac !== v.mySeat) return;
-    if (!(v.tahy || []).some(t => t.fig === fig)) return;
-    this.ctx.send('action', { a: 'tah', fig });
+    // Klik přímo na figurku hraje tah DOPŘEDU. Když má figurka i couvnutí
+    // (Boomerang), rozliší se to čísly dole – couvací má šipku.
+    const moje = (v.tahy || []).filter(t => t.fig === fig);
+    if (!moje.length) return;
+    const t = moje.find(x => !x.couv) || moje[0];
+    this.ctx.send('action', { a: 'tah', fig, couv: !!t.couv });
+  },
+
+  tahMoznost(t) {
+    if (!this.view?.myTurn || !this.view.hozeno) return;
+    this.ctx.send('action', { a: 'tah', fig: t.fig, couv: !!t.couv });
   },
 
   tah(hrac, fig) { this.klikFigurka(hrac, fig); },
@@ -574,7 +583,7 @@ export default {
           btn2.style.setProperty('--c', b.barva);
           btn2.textContent = String(t.fig + 1);
           btn2.title = [t.vyhodi ? 'Vyhodí soupeře' : '', t.couv ? 'Couvá zpátky' : ''].filter(Boolean).join(' · ');
-          btn2.onclick = () => this.tah(v.mySeat, t.fig);
+          btn2.onclick = () => this.tahMoznost(t);
           figBox.append(btn2);
         }
       }

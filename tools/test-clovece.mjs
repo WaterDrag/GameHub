@@ -387,6 +387,22 @@ function zapas(seed, levely, mody = {}) {
   const v = novaHra('mala', 2, 4, {});
   v.poz[0][0] = 10;
   zkus('bez boomerangu se necouvá', tahy(v, 0, 2).every(x => !x.couv), 'vypnuto');
+
+  // Regrese: tah se dřív poznával JEN podle čísla figurky, takže když
+  // měla figurka obě možnosti, `find` vrátila vždycky tu dopřednou –
+  // couvnout šlo jen tam, kde dopředu nešlo vůbec. Boti tím pádem
+  // couvli k vyhození jen ve 3 % situací, kdy to šlo.
+  const w = novaHra('mala', 2, 4, { boomerang: true });
+  w.poz[0][0] = 10;
+  w.hozeno = true; w.kostka = 2;
+  const obe = tahy(w, 0, 2).filter(x => x.fig === 0);
+  zkus('figurka má dopředu i dozadu', obe.length === 2, `${obe.length} možnosti`);
+
+  const dopredu = tah(w, 0, false);
+  const dozadu = tah(w, 0, true);
+  zkus('tah dopředu jde zahrát', dopredu.poz[0][0] === 12, `10 → ${dopredu.poz[0][0]}`);
+  zkus('tah dozadu jde zahrát taky', dozadu.poz[0][0] === 8, `10 → ${dozadu.poz[0][0]}`);
+  zkus('směr tah rozliší', dopredu.poz[0][0] !== dozadu.poz[0][0], 'dva různé výsledky')
 }
 
 // ── 11. Sniper ────────────────────────────────────
@@ -398,7 +414,7 @@ function zapas(seed, levely, mody = {}) {
   s.poz[2][0] = O + 1;          // soupeř už v cíli
   s.hozeno = true; s.kostka = 2;
 
-  const po = tah(s, 0, 1);
+  const po = tah(s, 0, false);
   zkus('vstup do domečku spustí sniper', !!po.sniper, po.sniper ? 'čeká na výběr' : 'nespustil');
   const cile = sniperCile(po);
   zkus('sniper míří jen na dráhu', cile.length === 1 && cile[0].hrac === 1 && cile[0].fig === 0,
@@ -412,7 +428,7 @@ function zapas(seed, levely, mody = {}) {
   u.poz[0][0] = O;              // už v cíli
   u.poz[1][0] = 5;
   u.hozeno = true; u.kostka = 1;
-  zkus('posun uvnitř domečku sniper nespustí', !tah(u, 0, 1).sniper, 'nespustil');
+  zkus('posun uvnitř domečku sniper nespustí', !tah(u, 0, false).sniper, 'nespustil');
 }
 
 // ── 12. Sacrifice ─────────────────────────────────
@@ -448,7 +464,7 @@ function zapas(seed, levely, mody = {}) {
   s.poz[0][0] = 3;
   s.poz[1][0] = 25;   // rameno 2 začíná na poli 20, krok 25 = pole 5
   s.hozeno = true; s.kostka = 2;
-  const po = tah(s, 0, 0);
+  const po = tah(s, 0, false);
   zkus('vyhození proběhlo', po.poz[1][0] === -1, `soupeř na ${po.poz[1][0]}`);
   zkus('lovec nasadí figurku na start', po.poz[0].includes(0), JSON.stringify(po.poz[0]));
   zkus('lovec o tom řekne', po.hlaska?.mod === 'lovec', po.hlaska?.text || 'nic');
@@ -457,13 +473,13 @@ function zapas(seed, levely, mody = {}) {
   u.poz[0][0] = 3; u.poz[0][1] = 0;
   u.poz[1][0] = 25;
   u.hozeno = true; u.kostka = 2;
-  const po2 = tah(u, 0, 0);
+  const po2 = tah(u, 0, false);
   zkus('lovec posune figurku ze startu', po2.poz[0][1] === 1, `ze startu na ${po2.poz[0][1]}`);
 
   const v = novaHra('mala', 2, 4, {});
   v.poz[0][0] = 3; v.poz[1][0] = 25;
   v.hozeno = true; v.kostka = 2;
-  zkus('bez módu žádná odměna', tah(v, 0, 0).poz[0].filter(k => k === 0).length === 0, 'vypnuto');
+  zkus('bez módu žádná odměna', tah(v, 0, false).poz[0].filter(k => k === 0).length === 0, 'vypnuto');
 }
 
 // ── 14. Nervy ─────────────────────────────────────
@@ -473,19 +489,19 @@ function zapas(seed, levely, mody = {}) {
   s.poz[1][0] = 25;
   s.hozeno = true; s.kostka = 2;
 
-  const selhalo = tah(s, 0, 0.0);
+  const selhalo = tah(s, 0, false, 0.0);
   zkus('nervy zkazí vyhození', selhalo.poz[0][0] === 3 && selhalo.poz[1][0] === 25,
     'figurka stojí, soupeř taky');
   zkus('a tah propadá', selhalo.naTahu === 1, `na tahu ${selhalo.naTahu}`);
   zkus('nervy o tom řeknou', selhalo.hlaska?.mod === 'nervy', selhalo.hlaska?.text || 'nic');
 
-  const povedlo = tah(s, 0, 0.99);
+  const povedlo = tah(s, 0, false, 0.99);
   zkus('nad prahem vyhození projde', povedlo.poz[1][0] === -1, `soupeř na ${povedlo.poz[1][0]}`);
 
   const u = novaHra('mala', 2, 4, { nervy: true });
   u.poz[0][0] = 3;
   u.hozeno = true; u.kostka = 2;
-  zkus('bez vyhození nervy nic nezkazí', tah(u, 0, 0.0).poz[0][0] === 5, 'tah proběhl');
+  zkus('bez vyhození nervy nic nezkazí', tah(u, 0, false, 0.0).poz[0][0] === 5, 'tah proběhl');
 }
 
 // ── Výpis ────────────────────────────────────────────────────

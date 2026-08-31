@@ -721,6 +721,27 @@ Součet má minimum 2, takže **o jedno pole se posunout nedá**. Figurka,
 které do volného políčka v cíli chybí právě jedna, už se nehne. Není to
 chyba, ale důsledek pravidla o přesném doskoku – a hlídá to test.
 
+#### Umí to boti?
+
+Ano, ale ne stejně dobře u obou:
+
+| | easy | normal | hard |
+|---|---|---|---|
+| couvne, když tím někoho vyhodí | 30 % | **96 %** | **95 %** |
+| obětuje (z příležitostí) | nikdy | 475 | 802 |
+
+Couvání napřed nefungovalo ani botům, ani lidem: **tah se poznával jen podle
+čísla figurky**, takže když měla figurka dopředný i couvací tah, `find` vždycky
+vrátila ten dopředný. Couvnout šlo jen tam, kde dopředu nešlo vůbec — což mód
+prakticky vyprázdnilo. Bot ho k vyhození využil ve 3 % situací, kdy to šlo.
+Teď se tah pozná podle figurky **a směru** a je to 96 %. Hlídá to test.
+
+**Sacrifice bota nezlepší.** Bot, který obětuje při každé příležitosti, prohrává
+proti stejně chytrému botovi, co neobětuje — 38,2 % výher, −5,3 σ. Dvě figurky
+do domečku jsou drahé, protože zpátky se dostanou jen za šestku. Práh je proto
+nastavený na hodnotu, kde je to vyrovnané (rozdíl postupu 8 u hard, 12 u normal):
+mód je v botských partiích vidět, ale nepoškozuje je. Easy neobětuje vůbec.
+
 #### Co módy nedělají
 
 Záměrně se neřetězí: Sniperův zásah není „vyhození“ pro Lovce odměn a Nervy
