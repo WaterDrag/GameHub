@@ -51,6 +51,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Stavěná trať** – hráči ji skládají z dílků a sázejí do ní pasti | ✅ |
 | **Šachy** – celá pravidla ověřená perftem, bot s alfa-beta | ✅ |
 | **Člověče, nezlob se** – pravidla z předlohy, deska pro 4 i pro 8 hráčů | ✅ |
+| **UNO No Mercy** – 132 karet, stohované tresty, tajné ruce | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
@@ -549,6 +550,61 @@ Nabídka je jedna společná a drží celý trh, takže se sama po **90 s**
 sundá (`TRADE_MS`). Bez toho by zapomenutá nabídka hráče, který odešel,
 zablokovala obchodování napořád — boti ji nepřijmou. Hod kostkou během
 otevřeného trhu jde: server ho povoluje, takže ho neblokuje ani klient.
+
+## UNO No Mercy
+
+Pravidla převzatá z předlohy: tresty se stohují (+2 → +4 → +6 → +10, vždy
+jen stejné nebo vyšší), kdo lízne nehratelnou kartu, líže dál, kdo zapomene
+říct UNO, dá se nachytat na +2, a **kdo nasbírá 25 karet, je venku**.
+
+Balíček má 132 karet – 4 barvy × (jedna nula, dvojice 1–9), po dvou od
+stopky, obratu, +2, výhozu barvy a stopu všem, plus 16 divokých.
+
+### Karty v ruce jsou tajné
+
+Tohle je hlavní důvod, proč hra běží na serveru. V předloze ležely **všechny
+ruce v databázi**, takže si kdokoliv mohl v konzoli přečíst karty soupeřů –
+u karetní hry je to horší než podvádět s kostkou.
+
+`view()` posílá každému jen jeho vlastní ruku, ostatním jen počty. Naměřeno
+v běžící hře: v celé zprávě bylo **8 karet – mých 7 plus vrchní odhozená**,
+zatímco soupeři jich drželi 18. Balíček ani odhazovací hromádka se neposílají
+vůbec, jen jejich velikost. Celý pohled má 778 znaků.
+
+Co smí hráč zahrát, taky rozhoduje server (`moznosti`); klient si to nepočítá
+sám, aby si nešlo v konzoli povolit cokoliv.
+
+### Tři věci, které měření našlo
+
+**Výhoz barvy karty ničil.** Odložené karty se z ruky jen smazaly a nikam se
+nevrátily. Test hlídá, že součet karet ve hře je pořád 132 – bez opravy
+neprošel ani jeden zápas z třiceti. Karty teď putují na odhazovací hromádku.
+
+**Vyřazení hráči vysáli balíček.** Jejich ruce zůstávaly mimo hru, takže při
+šesti a osmi hráčích drželi vyřazení přes osmdesát karet; balíček i hromádka
+se vyprázdnily a všichni už jen donekonečna pasovali. Karty vyřazeného se teď
+vracejí do hry – vkládají se **pod** vrchní kartu, ať se nezmění, co je zrovna
+ve hře. Předtím se 6 a 8 hráčů nedohrálo nikdy, teď vždycky.
+
+**Stop všem nedělal nic.** V předloze se po něm posouvalo o jednoho hráče, což
+je totéž jako obyčejná karta. Karta má přeskočit všechny ostatní, takže hraje
+znovu ten samý hráč.
+
+| hráčů | akcí na partii (medián) | vyřazených |
+|---|---|---|
+| 2 | 48 | 0,6 |
+| 4 | 90 | 1,6 |
+| 6 | 151 | 3,1 |
+| 8 | 204 | 4,3 |
+
+### Boti
+
+Hodnotí karty podle situace: v souboji o trest přihazují co nejmíň, ať jim
+zůstane munice; jinak berou trestací a stopky napřed a divoké si šetří na
+konec (ty jsou hratelné vždycky). Barvu volí podle toho, čeho mají v ruce
+nejvíc. Slušný bot řekne UNO a chytá cizí zapomenutá, easy na obojí zapomíná.
+
+Hard vyhrává **60,3 %** partií proti easy tam, kde by náhoda dala 50 %.
 
 ## Šachy
 

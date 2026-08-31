@@ -1428,3 +1428,139 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 
 /* Couvací tah v řadě čísel dole. */
 .cl-figbtn.couv::before{content:'\2190'; font-size:.7rem; vertical-align:super; opacity:.85}
+
+
+/* ── UNO No Mercy ─────────────────────────────────
+   Karty mají vlastní pevnou paletu, ne barvy motivu – červená karta
+   musí být červená i v zeleném motivu. Stejný přístup jako u Dostihů. */
+.un{
+  --un-cervena:#ff2244; --un-modra:#1a7fff; --un-zelena:#00e676; --un-zluta:#ffd600;
+  --un-karta-s:70px; --un-karta-v:105px;
+  position:absolute; inset:0; z-index:12; display:flex; flex-direction:column;
+  gap:8px; padding:10px; pointer-events:auto; overflow:hidden;
+}
+
+.un-soupeti{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; flex-shrink:0}
+.un-souper{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:5px 11px; min-width:78px; border-radius:10px;
+  background:var(--bg2); border:1px solid var(--brd); opacity:.55;
+  transition:opacity .2s, border-color .2s;
+}
+.un-souper.on{opacity:1; border-color:var(--warn); box-shadow:0 0 14px color-mix(in srgb,var(--warn) 30%,transparent)}
+.un-souper.ven{opacity:.3; filter:grayscale(1)}
+.un-jmeno{font-size:.7rem; font-weight:700; letter-spacing:.04em; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.un-souper.on .un-jmeno{color:var(--warn)}
+.un-pocet-velky{font-family:var(--font-display); font-size:1.25rem; line-height:1}
+.un-mini{display:flex; gap:2px; align-items:center}
+.un-mini i{width:8px; height:12px; border-radius:2px; background:#2a2a4a; border:1px solid #3a3a5a}
+.un-mini b{font-size:.6rem; color:var(--tx3)}
+.un-ven{font-size:.62rem; font-weight:700; color:var(--bad)}
+.un-znacka{
+  font-family:var(--font-display); font-size:.62rem; letter-spacing:.06em;
+  background:var(--bad); color:#fff; padding:1px 5px; border-radius:3px;
+}
+
+.un-stred{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:0; position:relative}
+.un-trest{
+  font-family:var(--font-display); font-size:1.3rem; letter-spacing:.08em; color:var(--bad);
+  text-shadow:0 0 18px color-mix(in srgb,var(--bad) 60%,transparent);
+}
+.un-hromadky{display:flex; gap:18px; align-items:center}
+.un-hromadka{display:flex; flex-direction:column; align-items:center; gap:4px}
+.un-popis{font-size:.58rem; letter-spacing:.14em; text-transform:uppercase; color:var(--tx3)}
+.un-pocet{font-family:var(--font-display); font-size:1rem; color:var(--tx3)}
+.un-balicek{cursor:pointer; transition:transform .15s}
+.un-balicek:hover{transform:translateY(-3px) scale(1.05)}
+.un-smer{display:flex; flex-direction:column; align-items:center; gap:6px}
+.un-smer-text{font-family:var(--font-display); font-size:1.3rem; color:var(--tx2)}
+.un-barva{width:22px; height:22px; border-radius:50%; border:3px solid #fff; transition:background .3s}
+.un-log{font-size:.72rem; color:var(--tx3); text-align:center; min-height:1em; max-width:620px}
+
+.un-karta{
+  width:var(--un-karta-s); height:var(--un-karta-v); border-radius:9px; flex-shrink:0;
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));
+}
+.un-ram{width:100%; height:100%; border-radius:9px; padding:3px}
+.un-vnitrek{
+  width:100%; height:100%; border-radius:6px; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.un-oval{position:absolute; width:118%; height:70%; border-radius:50%; transform:rotate(-22deg); background:rgba(255,255,255,.18)}
+.un-hlavni{font-family:var(--font-display); font-size:2.3rem; line-height:1; position:relative; z-index:2}
+.un-hlavni.maly{font-size:1.5rem}
+.un-roh{position:absolute; font-family:var(--font-display); font-size:.78rem; color:#fff; z-index:3; text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.un-roh-lh{top:3px; left:5px}
+.un-roh-pd{bottom:3px; right:5px; transform:rotate(180deg)}
+
+.un-cervena .un-ram{background:var(--un-cervena)}
+.un-cervena .un-vnitrek{background:radial-gradient(ellipse at center,#ff4466,var(--un-cervena) 70%)}
+.un-cervena .un-hlavni{color:var(--un-cervena)}
+.un-modra .un-ram{background:var(--un-modra)}
+.un-modra .un-vnitrek{background:radial-gradient(ellipse at center,#44aaff,var(--un-modra) 70%)}
+.un-modra .un-hlavni{color:var(--un-modra)}
+.un-zelena .un-ram{background:var(--un-zelena)}
+.un-zelena .un-vnitrek{background:radial-gradient(ellipse at center,#44ffaa,#00c060 70%)}
+.un-zelena .un-hlavni{color:#00a050}
+.un-zluta .un-ram{background:var(--un-zluta)}
+.un-zluta .un-vnitrek{background:radial-gradient(ellipse at center,#ffe844,var(--un-zluta) 70%)}
+.un-zluta .un-hlavni{color:#cc9900}
+.un-divoka .un-ram{background:conic-gradient(var(--un-cervena) 0deg 90deg,var(--un-modra) 90deg 180deg,var(--un-zelena) 180deg 270deg,var(--un-zluta) 270deg 360deg)}
+.un-divoka .un-vnitrek{background:#111122}
+.un-divoka .un-hlavni{color:#fff}
+.un-divoka .un-oval{background:rgba(255,255,255,.07)}
+.un-rub .un-ram{background:#1a1a2e; border:2px solid #2a2a4a}
+.un-rub .un-vnitrek{background:repeating-linear-gradient(45deg,#12121e,#12121e 6px,#1a1a2e 6px,#1a1a2e 12px)}
+.un-rub-text{font-family:var(--font-display); font-size:.95rem; color:var(--un-cervena); letter-spacing:.08em}
+
+.un-panel{
+  flex-shrink:0; display:flex; flex-direction:column; gap:7px; align-items:center;
+  padding:8px 10px; background:var(--bg2); border:1px solid var(--brd); border-radius:14px;
+}
+.un-stav{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center}
+.un-stav b{font-size:.95rem; color:var(--tx2)}
+.un-stav b.muj{color:var(--acc2)}
+.un-mych{font-size:.72rem; color:var(--tx3); background:var(--surface); padding:2px 9px; border-radius:99px; border:1px solid var(--brd)}
+.un-tlacitka{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+.un-btn{
+  min-width:112px; height:38px; padding:0 14px; border-radius:10px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx);
+  font-family:var(--font-display); font-size:.85rem; letter-spacing:.07em;
+  transition:transform .14s, box-shadow .14s, opacity .14s;
+}
+.un-btn:not(:disabled):hover{transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.35)}
+.un-btn:disabled{opacity:.4; cursor:not-allowed}
+.un-btn.trest{background:color-mix(in srgb,var(--bad) 18%,var(--surface)); border-color:var(--bad); color:var(--bad)}
+.un-vzdej{background:color-mix(in srgb,var(--ok) 14%,var(--surface)); border-color:var(--ok); color:var(--ok)}
+.un-uno{background:var(--bad); border-color:#fff; color:#fff; font-size:1rem}
+.un-chyt{min-width:auto; height:30px; font-size:.72rem; background:color-mix(in srgb,var(--bad) 18%,var(--surface)); border-color:var(--bad); color:var(--bad)}
+
+.un-ruka-obal{width:100%; overflow-x:auto; overflow-y:visible; padding:14px 0 4px; display:flex; justify-content:center}
+.un-ruka{display:flex; padding:0 28px; min-width:min-content; align-items:flex-end}
+.un-ruka .un-karta{margin-right:-36px; transition:transform .18s cubic-bezier(.34,1.56,.64,1), margin .18s, filter .18s}
+.un-ruka .un-karta.lze{cursor:pointer}
+.un-ruka .un-karta.lze:hover{transform:translateY(-28px) scale(1.07); margin-right:2px; z-index:50}
+.un-ruka .un-karta.nelze{filter:brightness(.32) saturate(.35) drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.un-ruka .un-karta:last-child{margin-right:0}
+
+.un-vyber{position:absolute; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.8); backdrop-filter:blur(4px)}
+.un-vyber-box{background:var(--bg2); border:1px solid var(--brd); border-radius:16px; padding:22px; text-align:center}
+.un-vyber-nadpis{font-family:var(--font-display); font-size:1.2rem; letter-spacing:.08em; color:var(--acc2); margin-bottom:14px}
+.un-vyber-mrizka{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.un-barva-btn{
+  height:52px; min-width:112px; border:none; border-radius:9px; cursor:pointer;
+  font-family:var(--font-display); font-size:1rem; letter-spacing:.07em; color:rgba(255,255,255,.9);
+  transition:transform .14s;
+}
+.un-barva-btn:hover{transform:scale(1.05)}
+.un-barva-btn.un-cervena{background:var(--un-cervena)}
+.un-barva-btn.un-modra{background:var(--un-modra)}
+.un-barva-btn.un-zelena{background:var(--un-zelena); color:rgba(0,0,0,.75)}
+.un-barva-btn.un-zluta{background:var(--un-zluta); color:rgba(0,0,0,.75)}
+
+@media (max-width:720px){
+  .un{--un-karta-s:58px; --un-karta-v:87px; padding:7px}
+  .un-souper{min-width:62px; padding:4px 7px}
+  .un-jmeno{font-size:.62rem; max-width:76px}
+  .un-hromadky{gap:12px}
+}
