@@ -1553,6 +1553,16 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   transition:transform .14s;
 }
 .un-barva-btn:hover{transform:scale(1.05)}
+.un-hraci-mrizka{display:flex; flex-direction:column; gap:8px; min-width:200px}
+.un-hrac-btn{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 14px; border-radius:9px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx);
+  font-family:var(--font); font-size:.85rem; font-weight:600;
+  transition:transform .14s, border-color .14s;
+}
+.un-hrac-btn:hover{transform:translateY(-2px); border-color:var(--acc)}
+.un-hrac-btn b{font-family:var(--font-display); font-size:1.1rem; color:var(--acc2)}
 .un-barva-btn.un-cervena{background:var(--un-cervena)}
 .un-barva-btn.un-modra{background:var(--un-modra)}
 .un-barva-btn.un-zelena{background:var(--un-zelena); color:rgba(0,0,0,.75)}

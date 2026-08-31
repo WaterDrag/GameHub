@@ -12,8 +12,8 @@
 //  Balíček míchá server svým RNG, ne prohlížeč.
 // ─────────────────────────────────────────────────────────────
 import {
-  novaHra, moznosti, zahraj, lizni, vzdejTah, rekniUno, nachytej,
-  lzeHrat, vrch, zije, poradi,
+  novaHra, moznosti, zahraj, lizni, rekniUno, nachytej, vymen, cileVymeny,
+  lzeHrat, vrch, zije, zivi, poradi,
 } from '../../shared/games/uno/pravidla.js';
 import {
   BARVY, DIVOKA, MILOST, novyBalicek, trestZa, jeDivoka, jeCislo, znak, nazevZnaku,
@@ -135,20 +135,34 @@ export default {
       return;
     }
 
-    if (state.seats[s.naTahu] !== player.uid) return ctx.reject(player, 'Nejsi na tahu.');
+    if (s.vymena && s.vymena.hrac !== seat) return ctx.reject(player, 'Čeká se na výměnu karet.');
+    if (!s.vymena && state.seats[s.naTahu] !== player.uid) return ctx.reject(player, 'Nejsi na tahu.');
 
     if (msg.a === 'zahraj') {
       const idx = msg.idx | 0;
       if (!moznosti(s).includes(idx)) return ctx.reject(player, 'Tuhle kartu teď zahrát nejde.');
       return this.zahrat(state, idx, msg.barva, ctx);
     }
-    if (msg.a === 'lizni') return this.liznout(state, ctx);
-    if (msg.a === 'vzdej') {
-      if (!s.lizl) return ctx.reject(player, 'Teď se tah vzdát nedá.');
-      state.hra = vzdejTah(s);
-      this.prepocti(state, ctx);
-      return;
+    if (msg.a === 'lizni') {
+      if (s.musiZahrat !== null) return ctx.reject(player, 'Líznutou kartu musíš zahrát.');
+      return this.liznout(state, ctx);
     }
+    if (msg.a === 'vymen') {
+      if (!s.vymena) return ctx.reject(player, 'Teď se nevyměňuje.');
+      if (s.vymena.hrac !== seat) return ctx.reject(player, 'Vybírá někdo jiný.');
+      return this.vymenit(state, msg.cil | 0, ctx);
+    }
+  },
+
+  vymenit(state, cil, ctx) {
+    const s = state.hra;
+    const kdo = this.jmeno(ctx, state.seats[s.vymena.hrac]);
+    state.hra = vymen(s, cil);
+    if (state.hra.vymena) return;                 // neplatný cíl
+    this.zapis(state, `🔄 ${kdo} si vyměnil karty s ${this.jmeno(ctx, state.seats[cil])}.`);
+    ctx.emit('vymena', { kdo: s.vymena.hrac, cil });
+    if (state.hra.vitez !== null) this.zapis(state, `${this.jmeno(ctx, state.seats[state.hra.vitez])} vyhrál!`);
+    this.prepocti(state, ctx);
   },
 
   zahrat(state, idx, barva, ctx) {
@@ -180,7 +194,6 @@ export default {
     const n = state.hra;
     if (n.hlaska) this.zapis(state, `${kdo} ${n.hlaska.text}`);
     else if (n.musiLizat) this.zapis(state, `${kdo} líže dál.`);
-    else if (n.lizl) this.zapis(state, `${kdo} lízl a může hrát.`);
 
     if (n.vyrazeni.length > predVyrazenych) {
       const ven = n.vyrazeni[n.vyrazeni.length - 1];
@@ -236,6 +249,16 @@ export default {
       if (level !== 'easy' || ctx.rng() < 0.4) state.hra = rekniUno(s, s.naTahu);
     }
 
+    // Sedmička čeká na výběr protějšku. Bere se ten s nejmíň kartami –
+    // vyměnit si velkou ruku za malou je celý smysl té karty.
+    if (s.vymena) {
+      const cile = cileVymeny(s);
+      if (!cile.length) { state.botAt = 0; return; }
+      let nej = cile[0];
+      for (const c of cile) if (s.ruce[c].length < s.ruce[nej].length) nej = c;
+      return this.vymenit(state, level === 'easy' ? ctx.rng.pick(cile) : nej, ctx);
+    }
+
     const idx = vyberKartu(state.hra, level, ctx.rng);
     if (idx !== null) {
       const karta = state.hra.ruce[state.hra.naTahu][idx];
@@ -245,18 +268,8 @@ export default {
       return this.zahrat(state, idx, barva, ctx);
     }
 
-    // Nemá co hrát. Po líznutí hratelné karty ji rovnou zahraje.
-    if (state.hra.lizl) {
-      const po = vyberKartu(state.hra, level, ctx.rng);
-      if (po !== null) {
-        const k = state.hra.ruce[state.hra.naTahu][po];
-        const b = jeDivoka(k) ? nejcastejsiBarva(state.hra.ruce[state.hra.naTahu], ctx.rng) : null;
-        return this.zahrat(state, po, b, ctx);
-      }
-      state.hra = vzdejTah(state.hra);
-      this.prepocti(state, ctx);
-      return;
-    }
+    // Nemá co hrát – líže. Líznutou hratelnou kartu pak musí zahrát,
+    // což zařídí `moznosti` v dalším kroku.
     return this.liznout(state, ctx);
   },
 
@@ -286,8 +299,10 @@ export default {
       odhozu: s.odhoz.length,
       milost: s.milost,
       moznosti: myTurn ? moznosti(s) : [],
-      lizl: myTurn && s.lizl,
       musiLizat: myTurn && s.musiLizat,
+      musiZahrat: myTurn ? s.musiZahrat : null,
+      vymena: s.vymena,
+      cileVymeny: s.vymena && s.vymena.hrac === seat ? cileVymeny(s) : [],
       unoOhrozeny: s.unoOhrozeny,
       muzuUno: myTurn && seat >= 0 && s.ruce[seat].length === 2 && !s.reklUno[seat],
       vyrazeni: s.vyrazeni,

@@ -51,7 +51,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Stavěná trať** – hráči ji skládají z dílků a sázejí do ní pasti | ✅ |
 | **Šachy** – celá pravidla ověřená perftem, bot s alfa-beta | ✅ |
 | **Člověče, nezlob se** – pravidla z předlohy, deska pro 4 i pro 8 hráčů | ✅ |
-| **UNO No Mercy** – 132 karet, stohované tresty, tajné ruce | ✅ |
+| **UNO No Mercy** – 136 karet, oficiální pravidla, tajné ruce | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
@@ -553,12 +553,32 @@ otevřeného trhu jde: server ho povoluje, takže ho neblokuje ani klient.
 
 ## UNO No Mercy
 
-Pravidla převzatá z předlohy: tresty se stohují (+2 → +4 → +6 → +10, vždy
-jen stejné nebo vyšší), kdo lízne nehratelnou kartu, líže dál, kdo zapomene
-říct UNO, dá se nachytat na +2, a **kdo nasbírá 25 karet, je venku**.
+Podle **oficiálních pravidel**, ne podle předlohy – ta měla několik věcí jinak
+nebo vůbec. Tresty se stohují (+2 → +4 → +6 → +10, vždy jen stejné nebo vyšší),
+kdo nemá co hrát, líže dokud nevytáhne hratelnou, kdo zapomene říct UNO, dá se
+nachytat na +2, a **kdo nasbírá 25 karet, je venku**.
 
-Balíček má 132 karet – 4 barvy × (jedna nula, dvojice 1–9), po dvou od
-stopky, obratu, +2, výhozu barvy a stopu všem, plus 16 divokých.
+Balíček má 136 karet – 4 barvy × (jedna nula, dvojice 1–9), po dvou od stopky,
+obratu, +2, výhozu barvy a stopu všem, plus 20 divokých.
+
+### Čtyři rozdíly proti předloze
+
+Předlohu jsem portoval první a teprve pak dostal oficiální pravidla. Rozešly se
+ve čtyřech věcech a rozhodl jsem se pro pravidla:
+
+| | předloha | pravidla |
+|---|---|---|
+| **Nula** | obyčejné číslo | všichni posílají celou ruku dalšímu v pořadí |
+| **Sedmička** | obyčejné číslo | vyměníš si ruku s hráčem, kterého si vybereš |
+| **Barevná ruleta** | v balíčku nebyla | další hráč líže, dokud nevytáhne zvolenou barvu, a ztrácí tah |
+| **Líznutá hratelná** | smíš ji zahrát, nebo vzdát tah | **musíš** ji zahrát |
+
+A jedna drobnost: u stohování předloha vyžadovala i shodu barvy (modrá +2 se
+nesměla přihodit na červenou +2). Oficiální pravidla mluví jen o hodnotě, tak
+to barvu neřeší.
+
+Sedmička potřebuje výběr protějšku, takže má – podobně jako sniper v Člověče –
+vlastní fázi tahu: dokud si hráč nevybere, nikdo jiný hrát nemůže.
 
 ### Karty v ruce jsou tajné
 
@@ -567,9 +587,13 @@ ruce v databázi**, takže si kdokoliv mohl v konzoli přečíst karty soupeřů
 u karetní hry je to horší než podvádět s kostkou.
 
 `view()` posílá každému jen jeho vlastní ruku, ostatním jen počty. Naměřeno
-v běžící hře: v celé zprávě bylo **8 karet – mých 7 plus vrchní odhozená**,
-zatímco soupeři jich drželi 18. Balíček ani odhazovací hromádka se neposílají
-vůbec, jen jejich velikost. Celý pohled má 778 znaků.
+v běžící hře: v celé zprávě bylo **8 karet – mých 7 plus vrchní odhozená, ani
+jedna navíc**, zatímco soupeři jich drželi 30. Balíček ani odhazovací hromádka
+se neposílají vůbec, jen jejich velikost. Celý pohled má 725 znaků.
+
+> Poprvé mi ta kontrola vyšla na 5 karet místo 8 – regulární výraz v testu
+> neuměl velké písmeno ve `stopVsem`. Míň karet než čekaných je bezpečný směr,
+> ale číslo bylo špatně; po opravě sedí přesně.
 
 Co smí hráč zahrát, taky rozhoduje server (`moznosti`); klient si to nepočítá
 sám, aby si nešlo v konzoli povolit cokoliv.
@@ -577,7 +601,7 @@ sám, aby si nešlo v konzoli povolit cokoliv.
 ### Tři věci, které měření našlo
 
 **Výhoz barvy karty ničil.** Odložené karty se z ruky jen smazaly a nikam se
-nevrátily. Test hlídá, že součet karet ve hře je pořád 132 – bez opravy
+nevrátily. Test hlídá, že součet karet ve hře je pořád 136 – bez opravy
 neprošel ani jeden zápas z třiceti. Karty teď putují na odhazovací hromádku.
 
 **Vyřazení hráči vysáli balíček.** Jejich ruce zůstávaly mimo hru, takže při
@@ -592,10 +616,12 @@ znovu ten samý hráč.
 
 | hráčů | akcí na partii (medián) | vyřazených |
 |---|---|---|
-| 2 | 48 | 0,6 |
-| 4 | 90 | 1,6 |
-| 6 | 151 | 3,1 |
-| 8 | 204 | 4,3 |
+| 2 | 53 | 0,1 |
+| 4 | 113 | 1,6 |
+| 8 | 185 | 4,5 |
+
+(Měřeno až po doplnění oficiálních pravidel; nula a sedmička partie znatelně
+promíchávají, takže vyřazení ubylo.)
 
 ### Boti
 

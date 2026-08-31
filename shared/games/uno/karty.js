@@ -1,10 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 //  UNO No Mercy – balíček.
 //
-//  Složení je převzaté z předlohy kus po kuse: 132 karet.
-//   • 4 barvy × (jedna nula, dvojice 1–9)            = 76
+//  Základ je z předlohy, doplněný o Barevnou ruletu z oficiálních
+//  pravidel (v předloze chyběla): 136 karet.
+//   • 4 barvy × (jedna nula, dvojice 1–9)              = 76
 //   • 4 barvy × 2× (stop, obrat, +2, výhoz, stop všem) = 40
-//   • 4× (divoká, +4, +6, +10)                        = 16
+//   • 4× (divoká, +4, +6, +10, ruleta)                 = 20
 // ─────────────────────────────────────────────────────────────
 
 export const BARVY = ['cervena', 'modra', 'zelena', 'zluta'];
@@ -29,10 +30,15 @@ export const AKCE = {
   plus4: { znak: '+4', nazev: 'Divoká lízni 4', lizni: 4 },
   plus6: { znak: '+6', nazev: 'Divoká lízni 6', lizni: 6 },
   plus10: { znak: '+10', nazev: 'Divoká lízni 10', lizni: 10 },
+  ruleta: { znak: '🎯', nazev: 'Barevná ruleta', lizni: 0 },
 };
 
+// Čísla, která nejsou jen čísla.
+export const POSLI_RUKY = '0';    // všichni posílají ruku dalšímu v pořadí
+export const VYMEN_RUKY = '7';    // vyměníš si ruku s vybraným hráčem
+
 export const BAREVNE_AKCE = ['stop', 'obrat', 'plus2', 'vyhod', 'stopVsem'];
-export const DIVOKE_ZNAKY = ['divoka', 'plus4', 'plus6', 'plus10'];
+export const DIVOKE_ZNAKY = ['divoka', 'plus4', 'plus6', 'plus10', 'ruleta'];
 
 export const jeDivoka = (k) => k.b === DIVOKA;
 export const jeCislo = (k) => /^[0-9]$/.test(k.z);
@@ -53,7 +59,7 @@ export function novyBalicek() {
   return out;
 }
 
-export const VELIKOST_BALICKU = 132;
+export const VELIKOST_BALICKU = 136;
 
 // Kolik karet znamená vyřazení. V No Mercy je to 25.
 export const MILOST = 25;

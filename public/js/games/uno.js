@@ -66,7 +66,6 @@ export default {
         </div>
         <div class="un-tlacitka">
           <button class="un-btn" id="unLizni" type="button">Líznout</button>
-          <button class="un-btn un-vzdej hidden" id="unVzdej" type="button">Vzdát tah</button>
           <button class="un-btn un-uno hidden" id="unUno" type="button">UNO!</button>
         </div>
         <div class="un-ruka-obal"><div class="un-ruka" id="unRuka"></div></div>
@@ -77,11 +76,17 @@ export default {
           <div class="un-vyber-nadpis">Vyber barvu</div>
           <div class="un-vyber-mrizka" id="unVyberMrizka"></div>
         </div>
+      </div>
+
+      <div class="un-vyber hidden" id="unVymena">
+        <div class="un-vyber-box">
+          <div class="un-vyber-nadpis">S kým si vyměníš karty?</div>
+          <div class="un-hraci-mrizka" id="unVymenaMrizka"></div>
+        </div>
       </div>`;
 
     this.root.querySelector('#unLizni').onclick = () => this.lizni();
     this.root.querySelector('#unBalicek').onclick = () => this.lizni();
-    this.root.querySelector('#unVzdej').onclick = () => this.ctx.send('action', { a: 'vzdej' });
     this.root.querySelector('#unUno').onclick = () => this.ctx.send('action', { a: 'uno' });
     this.root.querySelector('#unChyt').onclick = () => this.ctx.send('action', { a: 'nachytej' });
 
@@ -212,21 +217,45 @@ export default {
     const stav = this.root.querySelector('#unStav');
     if (v.vitez !== null) stav.textContent = 'Konec hry';
     else if (v.vyrazeni.includes(v.mySeat)) stav.textContent = 'Jsi venku – 25 karet';
-    else if (v.myTurn) stav.textContent = v.musiLizat ? 'Líži dál…' : (v.lizl ? 'Zahraj, nebo vzdej tah' : 'Jsi na tahu');
+    else if (v.vymena && v.vymena.hrac === v.mySeat) stav.textContent = 'Vyber, s kým si vyměníš karty';
+    else if (v.vymena) stav.textContent = `${this.ctx.players.find(p => p.uid === v.seats[v.vymena.hrac])?.name || 'Soupeř'} vybírá výměnu…`;
+    else if (v.myTurn && v.musiZahrat !== null) stav.textContent = 'Líznutou kartu musíš zahrát';
+    else if (v.myTurn) stav.textContent = v.musiLizat ? 'Líži dál…' : 'Jsi na tahu';
     else stav.textContent = `Hraje ${naTahu?.name || 'soupeř'}`;
     stav.classList.toggle('muj', !!v.myTurn);
 
     this.root.querySelector('#unMych').textContent = `${v.ruka.length} karet`;
 
     const lizniBtn = this.root.querySelector('#unLizni');
-    lizniBtn.disabled = !v.myTurn || v.vitez !== null;
+    lizniBtn.disabled = !v.myTurn || v.vitez !== null || v.musiZahrat !== null || !!v.vymena;
     lizniBtn.textContent = v.trest ? `⚡ Líznout +${v.trest}` : 'Líznout';
     lizniBtn.classList.toggle('trest', !!v.trest && v.myTurn);
 
-    this.root.querySelector('#unVzdej').classList.toggle('hidden', !v.lizl);
     this.root.querySelector('#unUno').classList.toggle('hidden', !v.muzuUno);
     this.root.querySelector('#unChyt').classList.toggle('hidden',
       v.unoOhrozeny === null || v.unoOhrozeny === v.mySeat);
+
+    // Výběr protějšku pro sedmičku
+    const vymBox = this.root.querySelector('#unVymena');
+    const mojeVymena = v.vymena && v.vymena.hrac === v.mySeat;
+    vymBox.classList.toggle('hidden', !mojeVymena);
+    if (mojeVymena) {
+      const podpisV = (v.cileVymeny || []).join(',') + '|' + v.pocty.join(',');
+      if (podpisV !== this._podpisVymeny) {
+        this._podpisVymeny = podpisV;
+        const m = this.root.querySelector('#unVymenaMrizka');
+        m.innerHTML = '';
+        for (const h of v.cileVymeny || []) {
+          const p = this.ctx.players.find(x => x.uid === v.seats[h]);
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'un-hrac-btn';
+          b.innerHTML = `<span>${p?.name || 'Hráč'}</span><b>${v.pocty[h]}</b>`;
+          b.onclick = () => this.ctx.send('action', { a: 'vymen', cil: h });
+          m.append(b);
+        }
+      }
+    }
 
     // Ruka
     const ruka = this.root.querySelector('#unRuka');
