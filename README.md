@@ -663,10 +663,17 @@ pohled (`lzeOsada` / `lzeSilnice` / `lzeMesto`), sám si to nepočítá.
 
 ### Proč to nemůže běžet v prohlížeči
 
-Předloha měla celý stav ve Firestore, takže **si kdokoliv mohl přečíst, co kdo
-drží v ruce**. U zloděje, monopolu nebo obchodu je to celá hra. Tady `view()`
-posílá každému jen jeho suroviny a jeho karty – o ostatních jde ven pouhý počet.
-Balíček rozvojových karet se neposlílá vůbec, jen kolik v něm zbývá.
+Předloha měla celý stav ve Firestore, takže si kdokoliv mohl přečíst, co kdo
+drží v ruce – včetně rozvojových karet a celého balíčku. Tady `view()` posílá
+každému jen **jeho** rozvojové karty a balíček neposlílá vůbec, jen kolik
+v něm zbývá. Kdo drží skrytý bod k výhře, se dopředu nedozvíš.
+
+**Suroviny naopak vidí každý** (`surovinyVsech`, přání uživatele). Zloděj
+a monopol se tím hrají „na jistotu“ – výměnou za to se ale není o čem
+dohadovat a obchod jde uzavřít rychleji.
+
+I tak zbyl důvod, proč to nesmí počítat prohlížeč: **kam se smí stavět,
+říká server**. Klient dostane hotový seznam míst, ne pravidla.
 
 Druhá věc je deska. V předloze ji losoval prohlížeč, takže šlo generovat znovu,
 dokud u vlastní osady nepadla hezká šestka. Teď ji míchá server ze seedu.
@@ -696,6 +703,21 @@ Boti nabídku sami nevymyslí, ale umí ji posoudit – berou to, co je posune b
 k další stavbě, a tvrdý bot nepodrží toho, kdo má osm a víc bodů. Když nabídku
 nikdo nechce a není už kdo by ji přijal, sama padne, ať hráč nečumí na něco,
 co se nikdy nevyřeší.
+
+### Stavění je na dvě kliknutí
+
+Dokud se v panelu neklikne na Silnici / Osadu / Město, deska žádná místa
+nenabízí. Původně se rozsvítila sama, jakmile na stavbu vyšly suroviny –
+hneď po hodu tak deska vypadala, že **po tobě silnici chce**, a šlo ji
+postavit omylem jedním kliknutím vedle. V rozmístění a při silnicích zdarma
+z karty se místa svítí dál – tam hráč položit **musí**.
+
+Klikací terče jsou větší než kresba: kroužek místa na osadu má poloměr 5,
+terč pod ním 16 (vrcholy jsou od sebe 52, takže se sousedí nemůže překrýt),
+silnice se kreslí 6 px široká a chytá 20. Bez toho se muselo mířit přesně na
+obrys – doprostřed kroužku se klik nepočítal, protože dutý tvar vnitřkem
+kliky nebere. Terče jsou mimo svůj tah úplně mrtvé (`pointer-events:none`),
+aby nekradly kliknutí na pole při přesunu zloděje.
 
 ### Barvy
 

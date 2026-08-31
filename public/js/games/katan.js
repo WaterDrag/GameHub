@@ -63,6 +63,7 @@ export default {
       <div class="ka-deska">
         <svg class="ka-svg" id="kaSvg" viewBox="0 0 700 620"></svg>
         <div class="ka-hlaska hidden" id="kaHlaska"></div>
+        <div class="ka-vyzva hidden" id="kaVyzva"></div>
       </div>
 
       <aside class="ka-vpravo">
@@ -257,14 +258,34 @@ export default {
   },
 
   // ── Kliknutí ───────────────────────────────────────────────
+  // Co se teď na desce svítí. V rozmístění a při silnicích zdarma není
+  // co řešit – hráč MUSÍ položit. Ve vlastním tahu se ale nic nenabízí
+  // samo od sebe: nejdřív se klikne, co chci stavět.
+  co(v) {
+    const nutne = v.faze === 'rozmisteni';
+    return {
+      silnice: nutne || v.volneSilnice > 0 || this.rezim === 'silnice',
+      osada: nutne || this.rezim === 'osada',
+      mesto: !nutne && this.rezim === 'mesto',
+    };
+  },
+
+  zvolRezim(co) {
+    this.rezim = this.rezim === co ? null : co;
+    this.render(this.view);
+  },
+
   klikVrchol(id) {
     const v = this.view;
     if (!v) return;
-    if ((v.lzeMesto || []).includes(id)) return this.posli({ a: 'mesto', v: id });
-    if ((v.lzeOsada || []).includes(id)) return this.posli({ a: 'osada', v: id });
+    const ukaz = this.co(v);
+    if (ukaz.mesto && (v.lzeMesto || []).includes(id)) { this.rezim = null; return this.posli({ a: 'mesto', v: id }); }
+    if (ukaz.osada && (v.lzeOsada || []).includes(id)) { this.rezim = null; return this.posli({ a: 'osada', v: id }); }
   },
   klikHrana(id) {
-    if ((this.view?.lzeSilnice || []).includes(id)) this.posli({ a: 'silnice', e: id });
+    const v = this.view;
+    if (!v || !this.co(v).silnice) return;
+    if ((v.lzeSilnice || []).includes(id)) { this.rezim = null; this.posli({ a: 'silnice', e: id }); }
   },
   klikPole(id) {
     const v = this.view;
@@ -286,6 +307,7 @@ export default {
   render(v) {
     if (!v) return;
     const jaNaTahu = v.myTurn;
+    if (!jaNaTahu || v.faze !== 'akce') this.rezim = null;
 
     // Zloděj
     const p = v.pole[v.zlodej];
@@ -295,8 +317,10 @@ export default {
     const cilZlodej = jaNaTahu && v.faze === 'zlodej';
     this.polePrvky.forEach((g, i) => g.classList.toggle('cil', cilZlodej && i !== v.zlodej));
 
+    const ukaz = this.co(v);
+
     // Hrany
-    const lzeSil = new Set(v.lzeSilnice || []);
+    const lzeSil = new Set(ukaz.silnice ? (v.lzeSilnice || []) : []);
     v.hrany.forEach((e, i) => {
       const el = this.hranaPrvky[i];
       this.hranaPouzdra[i].setAttribute('opacity', e.majitel !== null ? 1 : 0);
@@ -316,8 +340,8 @@ export default {
     });
 
     // Vrcholy
-    const lzeOs = new Set(v.lzeOsada || []);
-    const lzeMe = new Set(v.lzeMesto || []);
+    const lzeOs = new Set(ukaz.osada ? (v.lzeOsada || []) : []);
+    const lzeMe = new Set(ukaz.mesto ? (v.lzeMesto || []) : []);
     v.vrcholy.forEach((vr, i) => {
       const el = this.vrcholPrvky[i];
       const lze = lzeOs.has(vr.id) || lzeMe.has(vr.id);
@@ -342,6 +366,7 @@ export default {
 
     this.renderHrace(v);
     this.renderPanel(v);
+    this.renderVyzvu(v);
     this.renderModal(v);
 
     const log = this.root.querySelector('#kaLog');
@@ -351,7 +376,7 @@ export default {
 
   renderHrace(v) {
     const box = this.root.querySelector('#kaHraci');
-    const podpis = `${v.naTahu}|${v.body.join(',')}|${v.pocetKaret.join(',')}|${v.rytiru.join(',')}|${v.nejdelsiCesta.hrac}|${v.nejvetsiArmada.hrac}`;
+    const podpis = `${v.naTahu}|${v.body.join(',')}|${v.rytiru.join(',')}|${v.nejdelsiCesta.hrac}|${v.nejvetsiArmada.hrac}|${JSON.stringify(v.surovinyVsech)}|${v.pocetDevKaret.join(',')}`;
     if (podpis === this._podpisHracu) return;
     this._podpisHracu = podpis;
     box.innerHTML = '';
@@ -365,8 +390,9 @@ export default {
         <span class="ka-tecka"></span>
         <span class="ka-jmeno">${jmeno}</span>
         <span class="ka-body">${v.body[h]} b</span>
+        <span class="ka-sur-hrac">${SUROVINY.map(r => `<span class="ka-sh${(v.surovinyVsech?.[h]?.[r] || 0) ? '' : ' nic'}" title="${SUROVINA_INFO[r].nazev}">${SUROVINA_INFO[r].emoji}${v.surovinyVsech?.[h]?.[r] ?? 0}</span>`).join('')}</span>
         <span class="ka-drobne">
-          🂠 ${v.pocetKaret[h]} · 🃏 ${v.pocetDevKaret[h]} · ⚔ ${v.rytiru[h]}
+          🃏 ${v.pocetDevKaret[h]} · ⚔ ${v.rytiru[h]}
           ${v.nejdelsiCesta.hrac === h ? ' 🛣' : ''}${v.nejvetsiArmada.hrac === h ? ' 🏅' : ''}
         </span>`;
       box.append(d);
@@ -418,17 +444,24 @@ export default {
       ['osada', 'Osada', (v.lzeOsada || []).length],
       ['mesto', 'Město', (v.lzeMesto || []).length],
     ];
-    const podpisSt = moznosti.map(m => m[2]).join(',') + '|' + v.lzeKarta + '|' + v.volneSilnice;
+    const podpisSt = moznosti.map(m => m[2]).join(',') + '|' + v.lzeKarta + '|' + v.volneSilnice
+      + '|' + this.rezim + '|' + v.faze + '|' + v.myTurn;
     if (podpisSt !== this._podpisSt) {
       this._podpisSt = podpisSt;
       stavby.innerHTML = '';
+      const vybirase = v.myTurn && v.faze === 'akce';
       for (const [klic, nazev, kolik] of moznosti) {
         const cena = Object.entries(CENY[klic])
           .map(([r, n]) => SUROVINA_INFO[r].emoji.repeat(n)).join('');
-        const d = document.createElement('div');
-        d.className = 'ka-stavba' + (kolik ? ' lze' : '');
+        // Tlačítko, ne jen nápověda – dokud se na ně neklikne, deska
+        // žádná místa nenabízí a nejde nic postavit omylem.
+        const d = document.createElement('button');
+        d.type = 'button';
+        d.className = 'ka-stavba' + (kolik ? ' lze' : '') + (this.rezim === klic ? ' vybrano' : '');
+        d.disabled = !(vybirase && kolik);
         d.innerHTML = `<b>${nazev}</b><span class="ka-cena">${cena}</span>
-          <span class="ka-kolik">${kolik ? `${kolik} míst` : '—'}</span>`;
+          <span class="ka-kolik">${this.rezim === klic ? 'klikni na desku' : (kolik ? `${kolik} míst` : '—')}</span>`;
+        d.onclick = () => this.zvolRezim(klic);
         stavby.append(d);
       }
       const k = document.createElement('button');
@@ -537,6 +570,40 @@ export default {
       b.onclick = () => this.posli({ a: 'prijmi' });
     }
     box.append(b);
+  },
+
+  // ── Cizí nabídka uprostřed desky ──────────────────────────
+  //  Řádek v postranním panelu se dá přehlédnout, a nabídka běží jen chvíli.
+  //  Není to modál – deska pod tím zůstává plně ovladatelná.
+  renderVyzvu(v) {
+    const box = this.root.querySelector('#kaVyzva');
+    const n = v.nabidka;
+    const klic = n ? `${n.hrac}|${JSON.stringify(n.dava)}|${JSON.stringify(n.chce)}` : null;
+
+    if (!n || n.hrac === v.mySeat || v.mySeat < 0 || klic === this._vyzvaSkryta) {
+      if (!box.classList.contains('hidden')) { box.classList.add('hidden'); box.innerHTML = ''; }
+      this._vyzvaKlic = null;
+      return;
+    }
+    const mohu = SUROVINY.every(r => (v.suroviny?.[r] ?? 0) >= n.chce[r]);
+    const podpis = klic + '|' + mohu;
+    if (podpis === this._vyzvaKlic) return;
+    this._vyzvaKlic = podpis;
+
+    const kdo = this.ctx.players.find(x => x.uid === v.seats[n.hrac]);
+    box.style.setProperty('--c', BARVY[n.hrac]);
+    box.innerHTML = `
+      <div class="ka-vyzva-kdo">🤝 ${kdo?.name || 'Hráč'} nabízí obchod</div>
+      <div class="ka-vyzva-radek"><small>dostaneš</small><b>${hromadka(n.dava)}</b></div>
+      <div class="ka-vyzva-radek"><small>dáš</small><b>${hromadka(n.chce)}</b></div>
+      <div class="ka-vyzva-tlacitka">
+        <button type="button" class="ka-btn hlavni" id="kaVyzvaAno" ${mohu ? '' : 'disabled'}>
+          ${mohu ? 'Přijmout' : 'Nemáš na to'}</button>
+        <button type="button" class="ka-btn maly" id="kaVyzvaNe">Zavřít</button>
+      </div>`;
+    box.querySelector('#kaVyzvaAno').onclick = () => { this._vyzvaSkryta = klic; this.posli({ a: 'prijmi' }); };
+    box.querySelector('#kaVyzvaNe').onclick = () => { this._vyzvaSkryta = klic; this.renderVyzvu(this.view); };
+    box.classList.remove('hidden');
   },
 
   otevriNabidku(v) {

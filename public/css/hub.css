@@ -1659,6 +1659,12 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .ka-jmeno{font-size:.74rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ka-body{font-family:var(--font-display); font-size:.85rem; color:var(--acc2)}
 .ka-drobne{grid-column:1/-1; font-size:.66rem; color:var(--tx3)}
+.ka-sur-hrac{grid-column:1/-1; display:flex; gap:3px; flex-wrap:wrap}
+.ka-sh{
+  font-size:.62rem; line-height:1; padding:2px 3px; border-radius:5px;
+  background:var(--surface); letter-spacing:-.5px;
+}
+.ka-sh.nic{opacity:.32}
 
 .ka-log{
   flex:1; min-height:70px; overflow-y:auto; font-size:.68rem; line-height:1.5;
@@ -1703,10 +1709,19 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 
 .ka-stavby{display:flex; flex-direction:column; gap:4px}
 .ka-stavba{
-  display:grid; grid-template-columns:1fr auto; gap:2px 6px; align-items:center;
+  display:grid; grid-template-columns:1fr auto; gap:2px 6px; align-items:center; text-align:left;
   padding:4px 8px; border-radius:8px; background:var(--bg2); border:1px solid var(--brd); opacity:.6;
+  color:var(--tx); font:inherit; cursor:default;
+  transition:transform .12s, border-color .12s, box-shadow .12s;
 }
 .ka-stavba.lze{opacity:1; border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.ka-stavba:not(:disabled){cursor:pointer}
+.ka-stavba:not(:disabled):hover{transform:translateY(-1px)}
+.ka-stavba.vybrano{
+  border-color:var(--acc2); background:color-mix(in srgb,var(--acc) 18%,var(--bg2));
+  box-shadow:0 0 0 1px var(--acc2) inset;
+}
+.ka-stavba.vybrano .ka-kolik{color:var(--acc2)}
 .ka-stavba b{font-size:.72rem}
 .ka-cena{font-size:.7rem; letter-spacing:-1px}
 .ka-kolik{grid-column:1/-1; font-size:.62rem; color:var(--tx3)}
@@ -1794,6 +1809,33 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   font-size:.6rem; letter-spacing:.06em; text-transform:uppercase;
   color:var(--tx3); min-width:52px; letter-spacing:0;
 }
+
+/* Cizí nabídka obchodu – uprostřed desky, ale deska pod ní zůstává živá */
+.ka-vyzva{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:30;
+  --c:#888; min-width:230px; display:flex; flex-direction:column; gap:6px;
+  padding:14px 16px; border-radius:14px;
+  background:color-mix(in srgb,var(--bg2) 94%,transparent);
+  border:1px solid var(--brd); border-top:4px solid var(--c);
+  box-shadow:0 10px 34px rgba(0,0,0,.55);
+  animation:ka-vyzva-in .22s ease-out;
+}
+.ka-vyzva.hidden{display:none}
+@keyframes ka-vyzva-in{
+  from{opacity:0; transform:translate(-50%,-46%) scale(.96)}
+  to{opacity:1; transform:translate(-50%,-50%) scale(1)}
+}
+.ka-vyzva-kdo{
+  font-family:var(--font-display); font-size:.82rem; letter-spacing:.04em;
+  color:var(--acc2); text-align:center;
+}
+.ka-vyzva-radek{display:flex; align-items:center; gap:8px; font-size:1rem}
+.ka-vyzva-radek small{
+  font-size:.6rem; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--tx3); min-width:56px;
+}
+.ka-vyzva-tlacitka{display:flex; gap:6px; margin-top:3px}
+.ka-vyzva-tlacitka .ka-btn{width:auto; flex:1}
 
 @media (max-width:1000px){
   .ka{flex-direction:column; overflow-y:auto}

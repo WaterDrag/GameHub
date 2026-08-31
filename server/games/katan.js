@@ -4,10 +4,10 @@
 //  Pravidla jsou v `shared/games/katan/pravidla.js` a server je jediný,
 //  kdo je vyhodnocuje. Klient posílá jen „stavím osadu na vrcholu 17“.
 //
-//  SUROVINY V RUCE JSOU TAJNÉ. `view()` posílá každému jen jeho vlastní
-//  karty, ostatním počty. V předloze ležel celý stav ve Firestore, takže
-//  si kdokoliv mohl přečíst, co kdo drží – a u zloděje nebo monopolu je
-//  to celá hra.
+//  ROZVOJOVÉ KARTY JSOU TAJNÉ, suroviny ne. `view()` posílá každému jeho
+//  vlastní karty a balíček neposlílá vůbec. Suroviny se od 31. 8. 2026 na
+//  přání uživatele ukáží všem (`surovinyVsech`) – zloděj a monopol se tím
+//  hrají „na jistotu“, ale hraje se tím rychleji a není se o čem dohadovat.
 //
 //  Deska se míchá seedem na serveru. V předloze ji losoval prohlížeč,
 //  takže šlo generovat znovu, dokud nepadlo hezké číslo u vlastní osady.
@@ -492,6 +492,9 @@ export default {
 
       // Moje karty – nikoho jiného.
       suroviny: muj ? s.suroviny[seat] : null,
+      // Přání uživatele 31. 8. 2026: suroviny vidí každý. Rozvojové karty
+      // zůstávají tajné – jinak by bylo dopředu vidět i to, kdo drží body.
+      surovinyVsech: s.suroviny,
       karty: muj ? s.karty[seat] : [],
       kartyDnes: muj ? s.kartyDnes[seat] : [],
       pocetKaret: s.suroviny.map(kolikKaret),

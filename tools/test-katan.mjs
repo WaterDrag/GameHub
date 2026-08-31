@@ -251,11 +251,15 @@ function zapas(seed, levely) {
   const v = hra.view(state, 'P0');
   zkus('vidím svoje suroviny', JSON.stringify(v.suroviny) === JSON.stringify(state.hra.suroviny[seat]),
     JSON.stringify(v.suroviny));
-  zkus('o ostatních znám jen počty', Array.isArray(v.pocetKaret) && v.pocetKaret.length === 3,
-    JSON.stringify(v.pocetKaret));
   const text = JSON.stringify(v);
-  zkus('cizí ruce se neposílají', !text.includes('"suroviny":[') && v.karty.length === state.hra.karty[seat].length,
-    'v pohledu není pole rukou');
+  // Od 31. 8. 2026 na přání uživatele: suroviny vidí každý.
+  zkus('suroviny ostatních vidím', JSON.stringify(v.surovinyVsech) === JSON.stringify(state.hra.suroviny),
+    JSON.stringify(v.surovinyVsech.map(x => x.cihla)));
+  zkus('počty karet sedí se surovinami',
+    v.pocetKaret.every((n, i) => n === kolikKaret(state.hra.suroviny[i])),
+    JSON.stringify(v.pocetKaret));
+  zkus('vlastní dev karty dostanu', v.karty.length === state.hra.karty[seat].length,
+    `${v.karty.length} karet`);
   zkus('cizí dev karty se neposílají',
     !JSON.stringify(v.pocetDevKaret).includes('rytir') && !text.includes('monopol'),
     'jen počty');
