@@ -4,11 +4,12 @@
 //   node tools/test-kvak.mjs [hráčů] [zápasů]
 import hra from '../server/games/kvak.js';
 import {
-  novaHra, tah, skok, plozeni, vzdejSe, preskoc,
-  tahy, kamMuze, cileLekninu, cilePlozeni, vsechnyZaby, zabyNa, maKralovnu,
+  novaHra, tah, preskoc, tahy, kamMuze, lzeHrat, lzeVstoupit,
+  vsechnyZaby, zabyNa, mojeZabyNa, maKralovnu, druhNa,
 } from '../shared/games/kvak/pravidla.js';
 import {
-  POLI, STRANA, ZASOBA, SLOZENI, STARTY, KARTY, index, klic, sousedi, novaDeska,
+  POLI, SLOZENI, STARTY, SAMCI, KARTY, KAPACITA, jeSamec,
+  index, klic, novaDeska,
 } from '../shared/games/kvak/const.js';
 import { makeRng } from '../shared/rng.js';
 
@@ -19,23 +20,23 @@ const STROP = 4000;
 const vysledky = [];
 const zkus = (popis, ok, detail) => vysledky.push({ popis, ok, detail });
 
-// Žab nesmí přibývat odjinud než ze zásoby.
+// Žab nesmí přibývat odjinud než od samečků.
 function zabySedi(s) {
   for (let h = 0; h < s.hracu; h++) {
     const na = vsechnyZaby(s, h);
     if (!s.hraci[h].zije) { if (na.length) return false; continue; }
-    // 1 královna + nejvýš 2 startovní žabky + co se doplodilo
-    const zabek = na.filter(z => !z.kralovna).length;
-    if (zabek > 2 + (ZASOBA - s.hraci[h].zasoba)) return false;
+    const vyplozeno = SAMCI.filter(x => s.hraci[h].plodil[x]).length;
+    if (na.filter(z => !z.kralovna).length > 2 + vyplozeno) return false;
     if (na.filter(z => z.kralovna).length > 1) return false;
   }
-  // Na jednom poli smí od jednoho hráče stát jen jedna žába.
-  for (const seznam of Object.values(s.zaby)) {
+  // Kapacita kartičky: dvě vlastní na kládě a u samečka, jinak jedna.
+  for (const [k, seznam] of Object.entries(s.zaby)) {
+    const [r, c] = k.split('-').map(Number);
+    const strop = KAPACITA(druhNa(s, r, c));
     const podle = {};
     for (const z of seznam) {
-      const k = `${z.hrac}`;
-      podle[k] = (podle[k] || 0) + 1;
-      if (podle[k] > 1) return false;
+      podle[z.hrac] = (podle[z.hrac] || 0) + 1;
+      if (podle[z.hrac] > strop) return false;
     }
   }
   return true;
@@ -50,7 +51,7 @@ function zapas(seed, levely) {
   const ctx = { rng, players, reject: () => {}, emit: () => {} };
   const state = hra.createState({ players, rng });
 
-  const st = { kroku: 0, zaseknuto: false, zabySedi: true, stik: 0, plozeni: 0, skoku: 0 };
+  const st = { kroku: 0, zaseknuto: false, zabySedi: true, stik: 0, plozeni: 0, navic: 0 };
   while (hra.result(state) === null && st.kroku < STROP) {
     const pred = state.hra.akci;
     const predLog = state.hra.log.length;
@@ -60,41 +61,35 @@ function zapas(seed, levely) {
     for (const r of state.hra.log.slice(predLog)) {
       if (/Štika/.test(r)) st.stik++;
       if (/novou žabku/.test(r)) st.plozeni++;
-      if (/přeskočil na jiný leknín/.test(r)) st.skoku++;
+      if (/Tah navíc|Táhneš ještě/.test(r)) st.navic++;
     }
     if (state.hra.akci === pred) { st.zaseknuto = true; break; }
   }
   const r = hra.result(state);
   st.dohrano = r !== null;
   st.vitez = r?.winners ? levely[Number(r.winners[0].slice(1))] : null;
-  st.remiza = !!r?.draw;
   return st;
 }
 
 // ── Deska ────────────────────────────────────────────────────
 {
-  const rng = makeRng(1);
-  const pole = novaDeska(rng, 4);
+  const pole = novaDeska(makeRng(1), 4);
   zkus('64 kartiček', pole.length === POLI, String(pole.length));
 
   const pocty = {};
   for (const d of pole) pocty[d] = (pocty[d] || 0) + 1;
-  const sedi = Object.entries(SLOZENI).every(([d, n]) => pocty[d] === n);
-  zkus('složení balíčku sedí', sedi, JSON.stringify(pocty));
+  zkus('složení balíčku sedí',
+    Object.entries(SLOZENI).every(([d, n]) => pocty[d] === n), JSON.stringify(pocty));
+  zkus('od každého samečka je právě jeden',
+    SAMCI.every(x => pocty[x] === 1), SAMCI.map(x => `${x}:${pocty[x]}`).join(' '));
 
   let bezpecnych = 0, startu = 0;
   for (let h = 0; h < 4; h++) {
-    for (const [r, c] of STARTY[h]) {
-      startu++;
-      const d = pole[index(r, c)];
-      if (d === 'voda' || d === 'rakos') bezpecnych++;
-    }
+    for (const [r, c] of STARTY[h]) { startu++; if (pole[index(r, c)] === 'rakos') bezpecnych++; }
   }
   zkus('na startovních polích není past', bezpecnych === startu, `${bezpecnych}/${startu}`);
-
-  // Deska se musí lišit podle seedu, jinak by šlo naučit se ji nazpaměť.
-  const jina = novaDeska(makeRng(2), 4);
-  zkus('jiný seed dá jinou desku', pole.join() !== jina.join(), 'liší se');
+  zkus('jiný seed dá jinou desku',
+    pole.join() !== novaDeska(makeRng(2), 4).join(), 'liší se');
 }
 
 // ── Start hry ────────────────────────────────────────────────
@@ -103,10 +98,10 @@ function zapas(seed, levely) {
     const s = novaHra(hracu, makeRng(10 + hracu));
     const zab = Object.values(s.zaby).flat();
     zkus(`${hracu} hráči: každý má 3 žáby`, zab.length === hracu * 3, String(zab.length));
-    const kralovny = zab.filter(z => z.kralovna).length;
-    zkus(`${hracu} hráči: každý má 1 královnu`, kralovny === hracu, String(kralovny));
-    const odhalenych = s.odhaleno.filter(Boolean).length;
-    zkus(`${hracu} hráči: startovní pole jsou otočená`, odhalenych === hracu * 3, String(odhalenych));
+    zkus(`${hracu} hráči: každý má 1 královnu`,
+      zab.filter(z => z.kralovna).length === hracu, String(zab.filter(z => z.kralovna).length));
+    zkus(`${hracu} hráči: startovní pole jsou otočená`,
+      s.odhaleno.filter(Boolean).length === hracu * 3, String(s.odhaleno.filter(Boolean).length));
     zkus(`${hracu} hráči: každý má čím táhnout`,
       Array.from({ length: hracu }, (_, h) => tahy(s, h).length).every(n => n > 0), 'ano');
   }
@@ -115,17 +110,12 @@ function zapas(seed, levely) {
 // ── Pohyb ────────────────────────────────────────────────────
 {
   const s = novaHra(2, makeRng(42));
-  // Královna hráče 0 stojí na 0-0.
+  s.pole[index(1, 1)] = 'rakos';
   const kam = kamMuze(s, 0, 0, 0);
   zkus('z rohu zbývá jediné pole', kam.length === 1, JSON.stringify(kam));
-  zkus('na vlastní žábu se nesmí',
-    !kam.some(([r, c]) => r === 0 && c === 1), 'sousední vlastní vynechána');
 
-  const daleko = tah(s, 0, 0, true, 3, 3);
-  zkus('skok přes půl desky neprojde', daleko.akci === s.akci, 'odmítnuto');
-
-  const cizi = tah(s, 7, 7, true, 6, 6);
-  zkus('cizí žábou se táhnout nedá', cizi.akci === s.akci, 'odmítnuto');
+  zkus('skok přes půl desky neprojde', tah(s, 0, 0, true, 3, 3).akci === s.akci, 'odmítnuto');
+  zkus('cizí žábou se táhnout nedá', tah(s, 7, 7, true, 6, 6).akci === s.akci, 'odmítnuto');
 
   const po = tah(s, 0, 0, true, 1, 1);
   zkus('normální tah projde', po.akci > s.akci, 'ok');
@@ -136,105 +126,140 @@ function zapas(seed, levely) {
 
 // ── Efekty kartiček ──────────────────────────────────────────
 {
-  const priprav = (druh, kralovna = true) => {
+  // Táhne královna z 0-0 na 1-1.
+  const priprav = (druh) => {
     const s = novaHra(2, makeRng(77));
     s.pole[index(1, 1)] = druh;
-    s.odhaleno[index(1, 1)] = false;
-    if (!kralovna) {
-      // Ať táhne žabka z 0-1, ne královna z 0-0.
-      return { s, tah: () => tah(s, 0, 1, false, 1, 1) };
-    }
-    return { s, tah: () => tah(s, 0, 0, true, 1, 1) };
+    return s;
   };
 
-  // Štika
-  const { s: sS, tah: tS } = priprav('stika', false);
-  const poS = tS();
-  zkus('štika sežere žabku', zabyNa(poS, 1, 1).length === 0, 'pole prázdné');
-  zkus('a pole je navždy zavřené', poS.zakazano[index(1, 1)], 'ano');
-  zkus('nikdo tam už nesmí', !kamMuze(poS, 0, 0, 0).some(([r, c]) => r === 1 && c === 1), 'ano');
+  // Rákos – nic zvláštního
+  zkus('rákos nic nedělá', tah(priprav('rakos'), 0, 0, true, 1, 1).naTahu === 1, 'tah končí');
 
-  const { tah: tSk } = priprav('stika', true);
-  const poSk = tSk();
-  zkus('královna štiku přežije', zabyNa(poSk, 1, 1).some(z => z.kralovna), 'stojí tam');
-  zkus('ale tah jí končí', poSk.naTahu === 1, 'na tahu je druhý');
+  // Komár – tah navíc
+  const poK = tah(priprav('komar'), 0, 0, true, 1, 1);
+  zkus('komár dá tah navíc', poK.naTahu === 0, 'hraje dál');
+  zkus('a smí se i toutéž žábou',
+    tahy(poK, 0).some(t => t.z.r === 1 && t.z.c === 1), 'ano');
 
-  // Komár
-  const { tah: tK } = priprav('komar');
-  const poK = tK();
-  zkus('komár dá tah navíc', poK.naTahu === 0 && poK.faze === 'tah', 'hraje dál');
+  // Komár platí pořád, ne jen poprvé – ale v jednom tahu jen jednou.
+  const sK2 = priprav('komar');
+  sK2.odhaleno[index(1, 1)] = true;
+  zkus('komár platí i na už otočené kartičce',
+    tah(sK2, 0, 0, true, 1, 1).naTahu === 0, 'zase tah navíc');
+  const dvaKomari = priprav('komar');
+  dvaKomari.pole[index(1, 2)] = 'komar';
+  const kk = tah(tah(dvaKomari, 0, 0, true, 1, 1), 1, 1, true, 1, 2);
+  const zpet = tah(kk, 1, 2, true, 1, 1);
+  zkus('ale v jednom tahu z jednoho komára jen jednou',
+    zpet.naTahu === 1, 'návrat na první komára tah ukončí');
 
-  // Voda
-  const { tah: tV } = priprav('voda');
-  zkus('voda nic nedělá', tV().naTahu === 1, 'tah končí');
+  // Štika – sežere i královnu
+  const poS = tah(priprav('stika'), 0, 0, true, 1, 1);
+  zkus('štika sežere i královnu', !maKralovnu(poS, 0), 'královna pryč');
+  zkus('a hráč tím končí', !poS.hraci[0].zije && poS.vitez === 1, `vítěz ${poS.vitez}`);
 
-  // Sameček + královna
-  const { s: sM, tah: tM } = priprav('samec');
-  const poM = tM();
-  zkus('sameček spustí rozmnožování', poM.faze === 'plozeni', poM.faze);
-  const cile = cilePlozeni(poM, 0, 1, 1);
-  zkus('a nabídne volná sousední pole', cile.length > 0, `${cile.length} polí`);
-  const poP = plozeni(poM, cile[0][0], cile[0][1]);
-  zkus('nová žabka se položí', zabyNa(poP, cile[0][0], cile[0][1]).length === 1, 'ano');
-  zkus('a ubyla ze zásoby', poP.hraci[0].zasoba === ZASOBA - 1, String(poP.hraci[0].zasoba));
+  const sZ = priprav('stika');
+  const poZ = tah(sZ, 0, 1, false, 1, 1);   // žabka z 0-1
+  zkus('štika sežere i žabku', zabyNa(poZ, 1, 1).length === 0, 'pole prázdné');
+  zkus('ale hráč hraje dál', poZ.hraci[0].zije, 'žije');
 
-  // Sameček + obyčejná žabka nedělá nic
-  const { tah: tM2 } = priprav('samec', false);
-  zkus('žabce sameček nepomůže', tM2().faze === 'tah' && tM2().naTahu === 1, 'tah končí');
+  // Leknín – tah navíc jinou žábou
+  const poL = tah(priprav('leknin'), 0, 0, true, 1, 1);
+  zkus('leknín dá tah navíc', poL.naTahu === 0, 'hraje dál');
+  zkus('ale ne toutéž žábou',
+    !tahy(poL, 0).some(t => t.z.r === 1 && t.z.c === 1), 'královna zablokovaná');
+  zkus('jinou žábou ano', tahy(poL, 0).length > 0, `${tahy(poL, 0).length} možností`);
 
-  // Leknín bez druhého leknínu neskáče
-  const { s: sL, tah: tL } = priprav('leknin');
-  for (let i = 0; i < POLI; i++) if (sL.pole[i] === 'leknin' && i !== index(1, 1)) sL.pole[i] = 'voda';
-  zkus('leknín bez druhého leknínu neskáče', tL().naTahu === 1, 'tah končí');
+  // Leknín bez jiné žáby tah ukončí.
+  const sam = priprav('leknin');
+  delete sam.zaby[klic(0, 1)];
+  delete sam.zaby[klic(1, 0)];
+  zkus('leknín bez jiné žáby tah ukončí',
+    tah(sam, 0, 0, true, 1, 1).naTahu === 1, 'tah končí');
 }
 
-// ── Leknín ───────────────────────────────────────────────────
+// ── Sameček ──────────────────────────────────────────────────
 {
-  const s = novaHra(2, makeRng(99));
-  s.pole[index(1, 1)] = 'leknin';
-  s.odhaleno[index(1, 1)] = false;
-  s.pole[index(4, 4)] = 'leknin';
-  s.odhaleno[index(4, 4)] = true;
-
+  const s = novaHra(2, makeRng(88));
+  s.pole[index(1, 1)] = 'samec1';
   const po = tah(s, 0, 0, true, 1, 1);
-  zkus('leknín nabídne přeskok', po.faze === 'leknin', po.faze);
-  const cile = cileLekninu(po, 0, 1, 1);
-  zkus('cílem je druhý odhalený leknín',
-    cile.length === 1 && cile[0][0] === 4 && cile[0][1] === 4, JSON.stringify(cile));
+  zkus('sameček přidá královně žabku', zabyNa(po, 1, 1).length === 2, `${zabyNa(po, 1, 1).length} žáby`);
+  zkus('a vznikne na TÉMŽE poli',
+    mojeZabyNa(po, 0, 1, 1).filter(z => !z.kralovna).length === 1, 'pod královnou');
+  zkus('sameček se odškrtne', po.hraci[0].plodil.samec1 === true, 'samec1 využitý');
+  zkus('a příští tah musí táhnout ona', po.nucena[0] === '1-1', po.nucena[0]);
+  zkus('nucení opravdu omezuje výběr',
+    tahy(po, 0).every(t => t.z.r === 1 && t.z.c === 1), 'jen z 1-1');
+  zkus('tah tím končí', po.naTahu === 1, 'na tahu je druhý');
 
-  const skocil = skok(po, 4, 4);
-  zkus('přeskok funguje', zabyNa(skocil, 4, 4).some(z => z.kralovna), 'královna je na 4-4');
-  zkus('a tah tím končí', skocil.naTahu === 1, 'ano');
+  // Podruhé týž sameček nedá nic.
+  const znovu = { ...po, naTahu: 0, nucena: [null, null] };
+  const po2 = tah(znovu, 1, 1, true, 1, 2);
+  const zpatky = tah({ ...po2, naTahu: 0 }, 1, 2, true, 1, 1);
+  zkus('týž sameček podruhé neplodí',
+    zabyNa(zpatky, 1, 1).filter(z => z.hrac === 0 && !z.kralovna).length <= 1, 'nic navíc');
 
-  const nechtel = vzdejSe(po);
-  zkus('skákat se nemusí', zabyNa(nechtel, 1, 1).some(z => z.kralovna) && nechtel.naTahu === 1,
-    'zůstala stát, tah končí');
+  // Jiný sameček plodí zvlášť.
+  const t2 = novaHra(2, makeRng(88));
+  t2.pole[index(1, 1)] = 'samec2';
+  t2.hraci[0].plodil.samec1 = true;
+  zkus('jiný sameček plodí i tak',
+    tah(t2, 0, 0, true, 1, 1).hraci[0].plodil.samec2 === true, 'samec2 využitý');
 
-  const mimo = skok(po, 6, 6);
-  zkus('skočit jinam než na leknín nejde', mimo.akci === po.akci, 'odmítnuto');
+  // Žabce sameček nepomůže.
+  const t3 = novaHra(2, makeRng(88));
+  t3.pole[index(1, 1)] = 'samec3';
+  const poZ = tah(t3, 0, 1, false, 1, 1);
+  zkus('žabce sameček nepomůže', poZ.hraci[0].plodil.samec3 === false, 'nic se nestalo');
+
+  // Čtyři samečci = strop čtyř žabek navíc.
+  zkus('samečci jsou čtyři', SAMCI.length === 4, SAMCI.join(', '));
+}
+
+// ── Kláda ────────────────────────────────────────────────────
+{
+  const s = novaHra(2, makeRng(55));
+  s.pole[index(1, 1)] = 'klada';
+  s.odhaleno[index(1, 1)] = true;
+
+  zkus('na kládu se vejdou dvě vlastní', KAPACITA('klada') === 2, '2');
+  const jedna = tah(s, 0, 0, true, 1, 1);
+  const dve = tah({ ...jedna, naTahu: 0 }, 0, 1, false, 1, 1);
+  zkus('a opravdu tam obě stojí', mojeZabyNa(dve, 0, 1, 1).length === 2, '2 žáby');
+
+  // Dvě soupeřovy na kládě = nedotknutelné.
+  const u = novaHra(2, makeRng(55));
+  u.pole[index(3, 3)] = 'klada';
+  u.odhaleno[index(3, 3)] = true;
+  u.zaby[klic(3, 3)] = [{ hrac: 1, kralovna: false }, { hrac: 1, kralovna: true }];
+  u.zaby[klic(3, 4)] = [{ hrac: 0, kralovna: false }];
+  zkus('na kládu se dvěma soupeři se nevstoupí',
+    !lzeVstoupit(u, 0, 3, 3), 'zakázáno');
+
+  // Jedna soupeřova se bere normálně.
+  const v = novaHra(2, makeRng(55));
+  v.pole[index(3, 3)] = 'klada';
+  v.odhaleno[index(3, 3)] = true;
+  v.zaby[klic(3, 3)] = [{ hrac: 1, kralovna: false }];
+  v.zaby[klic(3, 4)] = [{ hrac: 0, kralovna: false }];
+  const po = tah(v, 3, 4, false, 3, 3);
+  zkus('jedna soupeřova na kládě se sežere',
+    zabyNa(po, 3, 3).length === 1 && zabyNa(po, 3, 3)[0].hrac === 0, 'sežrána');
 }
 
 // ── Vyhazování ───────────────────────────────────────────────
 {
   const s = novaHra(2, makeRng(123));
-  s.pole[index(1, 1)] = 'voda';
+  s.pole[index(1, 1)] = 'rakos';
   s.odhaleno[index(1, 1)] = true;
   s.zaby[klic(1, 1)] = [{ hrac: 1, kralovna: false }];
-
   const po = tah(s, 0, 0, true, 1, 1);
-  zkus('cizí žabka se sežere', zabyNa(po, 1, 1).length === 1 && zabyNa(po, 1, 1)[0].hrac === 0, 'ano');
+  zkus('cizí žabka se sežere',
+    zabyNa(po, 1, 1).length === 1 && zabyNa(po, 1, 1)[0].hrac === 0, 'ano');
 
-  // Na rákosu se nevyhazuje
-  const sR = novaHra(2, makeRng(123));
-  sR.pole[index(1, 1)] = 'rakos';
-  sR.odhaleno[index(1, 1)] = true;
-  sR.zaby[klic(1, 1)] = [{ hrac: 1, kralovna: false }];
-  const poR = tah(sR, 0, 0, true, 1, 1);
-  zkus('na rákosu se nevyhazuje', zabyNa(poR, 1, 1).length === 2, 'obě žáby stojí vedle sebe');
-
-  // Královna → soupeř končí
   const sK = novaHra(2, makeRng(123));
-  sK.pole[index(1, 1)] = 'voda';
+  sK.pole[index(1, 1)] = 'rakos';
   sK.odhaleno[index(1, 1)] = true;
   sK.zaby[klic(1, 1)] = [{ hrac: 1, kralovna: true }];
   const poK = tah(sK, 0, 0, true, 1, 1);
@@ -249,19 +274,15 @@ function zapas(seed, levely) {
   const players = [{ uid: 'P0', name: 'A' }, { uid: 'P1', name: 'B' }];
   const state = hra.createState({ players, rng });
   const v = hra.view(state, 'P0');
-  const text = JSON.stringify(v);
 
   const odhalenych = state.hra.odhaleno.filter(Boolean).length;
   zkus('vidím jen otočené kartičky',
     v.pole.filter(x => x !== null).length === odhalenych, `${odhalenych} z 64`);
-
-  // Pod neotočenou kartičkou musí být ve výhledu null, ať tam leží cokoliv.
-  const skryte = state.hra.odhaleno.map((o, i) => (o ? null : state.hra.pole[i])).filter(Boolean);
-  const stikySkryte = skryte.filter(d => d === 'stika').length;
+  const skryteStiky = state.hra.odhaleno
+    .map((o, i) => (o ? null : state.hra.pole[i])).filter(d => d === 'stika').length;
   zkus('skryté štiky se neposílají',
-    stikySkryte > 0 && v.pole.filter(x => x === 'stika').length === 0,
-    `${stikySkryte} štik zůstalo skrytých`);
-  zkus('celá deska ve výhledu není', !text.includes('"deska"'), 'jen odhalené');
+    skryteStiky > 0 && v.pole.filter(x => x === 'stika').length === 0,
+    `${skryteStiky} štik zůstalo skrytých`);
 }
 
 // ── Celé partie ──────────────────────────────────────────────
@@ -270,8 +291,8 @@ function zapas(seed, levely) {
   const st = [];
   for (let i = 0; i < BEHU; i++) st.push(zapas(2000 + i, levely));
 
-  const dohrano = st.filter(x => x.dohrano).length;
-  zkus(`${BEHU}× dohráno do konce`, dohrano === BEHU, `${dohrano}/${BEHU}`);
+  zkus(`${BEHU}× dohráno do konce`,
+    st.filter(x => x.dohrano).length === BEHU, `${st.filter(x => x.dohrano).length}/${BEHU}`);
   zkus('žádné zaseknutí', st.every(x => !x.zaseknuto), `${st.filter(x => x.zaseknuto).length} zaseknutých`);
   zkus('žáby se nemnoží samy', st.every(x => x.zabySedi), `${st.filter(x => !x.zabySedi).length} chybných`);
 
@@ -280,7 +301,7 @@ function zapas(seed, levely) {
     + ` (min ${kroky[0]}, max ${kroky[kroky.length - 1]})`);
   console.log(`  na partii: ${(st.reduce((a, x) => a + x.stik, 0) / BEHU).toFixed(1)} štik,`
     + ` ${(st.reduce((a, x) => a + x.plozeni, 0) / BEHU).toFixed(1)} rozmnožení,`
-    + ` ${(st.reduce((a, x) => a + x.skoku, 0) / BEHU).toFixed(1)} skoků po leknínu`);
+    + ` ${(st.reduce((a, x) => a + x.navic, 0) / BEHU).toFixed(1)} tahů navíc`);
 }
 
 // ── Síla botů ────────────────────────────────────────────────
@@ -299,7 +320,7 @@ function zapas(seed, levely) {
 
 // ── Výpis ────────────────────────────────────────────────────
 console.log('\n=== Kvak! ===');
-for (const v of vysledky) console.log(`  ${v.ok ? '✓' : '✗'} ${v.popis.padEnd(44)} ${v.detail}`);
+for (const v of vysledky) console.log(`  ${v.ok ? '✓' : '✗'} ${v.popis.padEnd(46)} ${v.detail}`);
 const spatne = vysledky.filter(v => !v.ok).length;
 console.log(spatne ? `\n✗ ${spatne} z ${vysledky.length} neprošlo` : `\n✓ všech ${vysledky.length} prošlo`);
 process.exit(spatne ? 1 : 0);

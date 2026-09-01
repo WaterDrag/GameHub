@@ -6,9 +6,12 @@
 //  skok přes půl desky.
 //
 //  Co je pod neotočenými kartičkami, se sem vůbec neposílá.
+//
+//  Leknín i sameček se řeší samy na serveru – klient posílá vždycky
+//  jen „skáču žábou z A na B“, žádné mezifáze nejsou.
 // ─────────────────────────────────────────────────────────────
 import {
-  STRANA, POLI, ZASOBA, KARTY, BARVY, klic, index,
+  STRANA, POLI, KARTY, LEGENDA, SAMCI, BARVY, jeSamec, klic,
 } from '/shared/games/kvak/const.js';
 
 export default {
@@ -43,7 +46,6 @@ export default {
       <aside class="kv-vpravo">
         <div class="kv-stav" id="kvStav">…</div>
         <div class="kv-pokyn" id="kvPokyn"></div>
-        <button class="kv-btn hidden" id="kvNeskakat" type="button">Neskákat, končím tah</button>
         <div class="kv-nadpis">Kartičky</div>
         <div class="kv-legenda" id="kvLegenda"></div>
       </aside>`;
@@ -56,8 +58,6 @@ export default {
         const d = document.createElement('button');
         d.type = 'button';
         d.className = 'kv-pole';
-        d.dataset.r = r;
-        d.dataset.c = c;
         d.innerHTML = '<span class="kv-karta"></span><span class="kv-zaby"></span>';
         d.onclick = () => this.klik(r, c);
         deska.append(d);
@@ -66,15 +66,18 @@ export default {
     }
 
     const leg = this.root.querySelector('#kvLegenda');
-    for (const [, k] of Object.entries(KARTY)) {
+    for (const id of LEGENDA) {
+      const k = KARTY[id];
       const d = document.createElement('div');
       d.className = 'kv-leg';
-      d.innerHTML = `<span class="kv-leg-i">${k.emoji}</span>
-        <span><b>${k.nazev}</b><small>${k.popis}</small></span>`;
+      // U samečka ukážeme rovnou všechny čtyři barvy – jsou to čtyři
+      // různé kartičky a každá plodí zvlášť.
+      const ikona = id === 'samec1' ? SAMCI.map(x => KARTY[x].emoji).join('') : k.emoji;
+      d.innerHTML = `<span class="kv-leg-i">${ikona}</span>
+        <span><b>${id === 'samec1' ? 'Samečci (4×)' : k.nazev}</b><small>${k.popis}</small></span>`;
       leg.append(d);
     }
 
-    this.root.querySelector('#kvNeskakat').onclick = () => this.posli({ a: 'skok', r: null });
     this.render(ctx.view);
   },
 
@@ -85,16 +88,6 @@ export default {
     const v = this.view;
     if (!v || !v.myTurn) return;
 
-    if (v.faze === 'leknin') {
-      if (this.jeMezi(v.cileLekninu, r, c)) this.posli({ a: 'skok', r, c });
-      return;
-    }
-    if (v.faze === 'plozeni') {
-      if (this.jeMezi(v.cilePlozeni, r, c)) this.posli({ a: 'plozeni', r, c });
-      return;
-    }
-    if (v.faze !== 'tah') return;
-
     // Druhé kliknutí = cíl, pokud tam vybraná žába smí.
     if (this.vybrana && this.cileVybrane().some(([tr, tc]) => tr === r && tc === c)) {
       const { r: zr, c: zc, kralovna } = this.vybrana;
@@ -102,11 +95,19 @@ export default {
       return this.posli({ a: 'tah', zr, zc, kralovna, r, c });
     }
 
-    // Jinak vyber (nebo odznač) vlastní žábu.
-    const moje = (v.zaby[klic(r, c)] || []).find(z => z.hrac === v.mySeat);
-    if (!moje) { this.vybrana = null; return this.render(v); }
-    if (this.vybrana && this.vybrana.r === r && this.vybrana.c === c) this.vybrana = null;
-    else if (v.tahy.some(t => t.z.r === r && t.z.c === c)) this.vybrana = { r, c, kralovna: moje.kralovna };
+    // Jinak vyber (nebo odznač) vlastní žábu, se kterou se smí hrát.
+    if (this.vybrana && this.vybrana.r === r && this.vybrana.c === c) {
+      this.vybrana = null;
+      return this.render(v);
+    }
+    const lze = v.tahy.filter(t => t.z.r === r && t.z.c === c);
+    if (lze.length) {
+      // Na kládě a u samečka mohou stát dvě moje žáby. Královna má
+      // přednost jen tehdy, když s ní jde táhnout.
+      this.vybrana = { r, c, kralovna: lze.some(t => t.z.kralovna) };
+    } else {
+      this.vybrana = null;
+    }
     this.render(v);
   },
 
@@ -117,13 +118,13 @@ export default {
   cileVybrane() {
     if (!this.vybrana || !this.view) return [];
     return this.view.tahy
-      .filter(t => t.z.r === this.vybrana.r && t.z.c === this.vybrana.c)
+      .filter(t => t.z.r === this.vybrana.r && t.z.c === this.vybrana.c
+        && !!t.z.kralovna === !!this.vybrana.kralovna)
       .map(t => t.na);
   },
 
   update(view) {
-    // Vybraná žába přežije jen do konce vlastní fáze tahu.
-    if (!view.myTurn || view.faze !== 'tah') this.vybrana = null;
+    if (!view.myTurn) this.vybrana = null;
     this.view = view;
     this.render(view);
   },
@@ -142,24 +143,23 @@ export default {
   render(v) {
     if (!v) return;
 
-    const cile = v.faze === 'leknin' ? v.cileLekninu
-      : v.faze === 'plozeni' ? v.cilePlozeni
-        : this.cileVybrane();
+    const cile = this.cileVybrane();
     const lzeTahnout = new Set((v.tahy || []).map(t => `${t.z.r}-${t.z.c}`));
+    const nucena = v.nucena?.[v.mySeat] || null;
 
     for (let i = 0; i < POLI; i++) {
       const r = Math.floor(i / STRANA), c = i % STRANA;
       const el = this.pole[i];
       const druh = v.pole[i];
       const zaby = v.zaby[klic(r, c)] || [];
+      const k = klic(r, c);
 
-      const podpis = `${druh}|${v.zakazano[i]}|${JSON.stringify(zaby)}`;
+      const podpis = `${druh}|${JSON.stringify(zaby)}`;
       if (el._podpis !== podpis) {
         el._podpis = podpis;
-        const karta = el.querySelector('.kv-karta');
-        karta.textContent = druh ? KARTY[druh].emoji : '';
-        el.className = 'kv-pole' + (druh ? ` odhalene kv-${druh}` : ' skryte')
-          + (v.zakazano[i] ? ' zakazane' : '')
+        el.querySelector('.kv-karta').textContent = druh ? KARTY[druh].emoji : '';
+        el.className = 'kv-pole'
+          + (druh ? ` odhalene kv-${jeSamec(druh) ? 'samec' : druh}` : ' skryte')
           + (zaby.length ? ' ma-zabu' : '');
         el.title = druh ? `${KARTY[druh].nazev} – ${KARTY[druh].popis}` : 'Neotočená kartička';
 
@@ -179,7 +179,8 @@ export default {
 
       el.classList.toggle('vybrana', !!this.vybrana && this.vybrana.r === r && this.vybrana.c === c);
       el.classList.toggle('cil', this.jeMezi(cile, r, c));
-      el.classList.toggle('lze', v.myTurn && v.faze === 'tah' && lzeTahnout.has(`${r}-${c}`));
+      el.classList.toggle('lze', v.myTurn && lzeTahnout.has(k));
+      el.classList.toggle('nucena', nucena === k);
     }
 
     this.renderHrace(v);
@@ -207,14 +208,17 @@ export default {
       const pl = this.ctx.players.find(x => x.uid === v.seats[h]);
       const jmeno = pl?.name || `Hráč ${h + 1}`;
       const zije = v.hraci[h].zije;
+      const plodil = v.hraci[h].plodil || {};
       const d = document.createElement('div');
       d.className = `kv-hrac${h === v.naTahu && zije ? ' on' : ''}${h === v.mySeat ? ' ja' : ''}${zije ? '' : ' mrtvy'}`;
       d.style.setProperty('--c', BARVY[h]);
+      // Samečci ukazují, kolik žabek ještě může přibýt.
+      const samci = SAMCI.map(x => `<span class="kv-samec${plodil[x] ? ' pryc' : ''}">${KARTY[x].emoji}</span>`).join('');
       d.innerHTML = `
         <span class="kv-tecka"></span>
         <span class="kv-jmeno">${jmeno}</span>
         <span class="kv-pocty">${zije ? `${pocty[h].kral ? '👑' : '💀'} 🐸×${pocty[h].zab}` : '💀'}</span>
-        <span class="kv-zasoba">v zásobě ${v.hraci[h].zasoba}/${ZASOBA}</span>`;
+        <span class="kv-samci">${samci}</span>`;
       box.append(d);
     }
   },
@@ -222,23 +226,17 @@ export default {
   renderPanel(v) {
     const naTahu = this.ctx.players.find(x => x.uid === v.seats[v.naTahu]);
     const stav = this.root.querySelector('#kvStav');
-    const popis = {
-      tah: v.myTurn ? 'Vyber žábu a skoč' : 'Hraje se',
-      leknin: v.myTurn ? 'Leknín – smíš přeskočit' : 'Skáče po leknínu',
-      plozeni: v.myTurn ? 'Polož novou žabku' : 'Rozmnožuje se',
-    }[v.faze] || '';
     stav.textContent = v.vitez !== null ? 'Konec hry'
-      : (v.myTurn ? popis : `${naTahu?.name || 'Soupeř'}: ${popis.toLowerCase()}`);
+      : (v.myTurn ? 'Vyber žábu a skoč' : `Na tahu je ${naTahu?.name || 'soupeř'}`);
     stav.classList.toggle('muj', !!v.myTurn);
 
+    const nucena = v.nucena?.[v.mySeat] || null;
     const pokyn = this.root.querySelector('#kvPokyn');
     pokyn.textContent = !v.myTurn ? ''
-      : v.faze === 'leknin' ? 'Klikni na jiný odhalený leknín, nebo tah ukonči.'
-        : v.faze === 'plozeni' ? 'Klikni na volné pole vedle královny.'
+      : nucena ? 'Nová žabka od samečka musí táhnout jako první.'
+        : v.lekninBlok ? 'Leknín: tah navíc, ale jinou žábou.'
           : this.vybrana ? 'Klikni na sousední pole. Dalším klikem na žábu výběr zrušíš.'
             : 'Klikni na svou žábu.';
-
-    this.root.querySelector('#kvNeskakat').classList.toggle('hidden', !(v.myTurn && v.faze === 'leknin'));
   },
 
   resize() {},

@@ -1922,18 +1922,14 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   content:'💧'; position:absolute; top:1px; left:3px;
   font-size:.5rem; opacity:.4; pointer-events:none;
 }
-.kv-voda{background:linear-gradient(140deg,#1565a0,#0d3f6b)}
 .kv-rakos{background:linear-gradient(140deg,#2f7d32,#1b4d20)}
 .kv-leknin{background:linear-gradient(140deg,#c2185b,#7b1140)}
 .kv-komar{background:linear-gradient(140deg,#6a3fa0,#3d2464)}
 .kv-stika{background:linear-gradient(140deg,#b03a1a,#6d2410)}
+.kv-klada{background:linear-gradient(140deg,#8d6032,#4e3418)}
 .kv-samec{background:linear-gradient(140deg,#c9971a,#8a6410)}
-.kv-pole.zakazane{filter:grayscale(.7) brightness(.55)}
-.kv-pole.zakazane::before{
-  content:'¹5'; position:absolute; inset:0; display:flex;
-  align-items:center; justify-content:center;
-  font-size:1.6rem; color:rgba(255,255,255,.5); pointer-events:none;
-}
+/* Nucený tah po rozmnožení – tahle žabka musí jít jako první. */
+.kv-pole.nucena{box-shadow:0 0 0 3px #ff6b6b, 0 0 14px rgba(255,107,107,.6)}
 .kv-karta{font-size:clamp(.7rem,2.1vw,1.25rem); line-height:1; pointer-events:none}
 /* Když na kartičce stojí žába, emoji jde do rohu – jinak by žába
    překryla, na čem vlastně stojí. */
@@ -1993,7 +1989,9 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .kv-tecka{width:9px; height:9px; border-radius:50%; background:var(--c)}
 .kv-jmeno{font-size:.74rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .kv-pocty{font-size:.72rem; letter-spacing:-.5px}
-.kv-zasoba{grid-column:1/-1; font-size:.62rem; color:var(--tx3)}
+.kv-samci{grid-column:1/-1; display:flex; gap:3px; font-size:.68rem; line-height:1}
+.kv-samec{opacity:1}
+.kv-samec.pryc{opacity:.22; filter:grayscale(1)}
 
 .kv-log{
   flex:1; min-height:70px; overflow-y:auto; font-size:.68rem; line-height:1.5;

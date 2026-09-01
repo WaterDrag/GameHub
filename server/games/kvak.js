@@ -13,11 +13,11 @@
 //  šlo generovat znovu, dokud nepadlo příznivé rozložení.
 // ─────────────────────────────────────────────────────────────
 import {
-  novaHra, tah, skok, plozeni, vzdejSe, preskoc,
-  tahy, kamMuze, cileLekninu, cilePlozeni, vsechnyZaby, zabyNa, mojeZabyNa,
+  novaHra, tah, preskoc, tahy, kamMuze, lzeHrat,
+  vsechnyZaby, zabyNa, druhNa,
 } from '../../shared/games/kvak/pravidla.js';
 import {
-  POLI, STRANA, ZASOBA, KARTY, index, naDesce, sousedi,
+  POLI, KARTY, SAMCI, jeSamec, klic, index, sousedi,
 } from '../../shared/games/kvak/const.js';
 
 const TAH_MS = 90000;      // kolik má člověk na tah
@@ -33,16 +33,19 @@ const CENA = {
   samec: 90,
   rakos: 30,
   neznameZabkou: 14,
-  neznameKralovnou: -18,
+  neznameKralovnou: -520,   // 8 štik z 60 = 13 % šance na okamžitou prohru
   stikaZabkou: -300,
-  stikaKralovnou: -60,
+  stikaKralovnou: -4000,  // štika sežere i královnu – rovnou prohra
   kralovnaVOhrozeni: -260,
   hrozbaNaKralovnu: 45,
+  klada: 34,            // druhá žába na kládu = nedotknutelná dvojice
   zpatky: -22,          // proti přehazování mezi dvěma poli
   noveOtoceni: 18,      // otočit novou kartičku je pokrok
   ubranePole: 26,       // za každé pole, které cizí královně zavřu
   zabaVOhrozeni: -58,   // jen hard: nenechává žabky viset pod úderem
 };
+
+const mojeNa = (s, h, r, c) => zabyNa(s, r, c).filter(z => z.hrac === h).length;
 
 // Kdo z cizích na to pole dosáhne příští tah.
 function ohrozeno(s, h, r, c) {
@@ -106,27 +109,17 @@ export default {
     this.prepocti(state, ctx);
   },
 
-  // ── Akce hráče ─────────────────────────────────────────────
+  // ── Akce hráče ─────────────────────────────────
+  //  Jediná akce: skok žábou o pole. Leknín i sameček se vyřeší samy,
+  //  žádné mezifáze už nejsou.
   onAction(state, player, msg, ctx) {
     const s = state.hra;
     if (s.vitez !== null) return;
     const seat = state.seats.indexOf(player.uid);
     if (seat < 0) return;
     if (s.naTahu !== seat) return ctx.reject(player, 'Nejsi na tahu.');
-
-    switch (msg.a) {
-      case 'tah':
-        if (s.faze !== 'tah') return ctx.reject(player, 'Teď se netáhne.');
-        return this.uprav(state, tah(s, msg.zr | 0, msg.zc | 0, !!msg.kralovna, msg.r | 0, msg.c | 0), ctx);
-      case 'skok':
-        if (s.faze !== 'leknin') return ctx.reject(player, 'Teď se neskáče.');
-        return this.uprav(state, msg.r === null ? vzdejSe(s) : skok(s, msg.r | 0, msg.c | 0), ctx);
-      case 'plozeni':
-        if (s.faze !== 'plozeni') return ctx.reject(player, 'Teď se nerozmnožuje.');
-        return this.uprav(state, plozeni(s, msg.r | 0, msg.c | 0), ctx);
-      default:
-        return;
-    }
+    if (msg.a !== 'tah') return;
+    return this.uprav(state, tah(s, msg.zr | 0, msg.zc | 0, !!msg.kralovna, msg.r | 0, msg.c | 0), ctx);
   },
 
   // ── Hodiny ─────────────────────────────────────────────────
@@ -139,17 +132,14 @@ export default {
     if (state.deadline && now >= state.deadline) return this.zahrajZa(state, ctx, 'normal');
   },
 
-  // Jeden krok za bota. Vrací se po každé akci, aby složený tah
-  // (skok po leknínu, rozmnožení) proběhl po kouskách a šel sledovat.
+  // Jeden krok za bota. Komár a leknín dají tah navíc, takže se sem
+  // hned vrátíme – díky tomu jde složený tah sledovat po kouscích.
   zahrajZa(state, ctx, vnuceny) {
     const s = state.hra;
     const h = s.naTahu;
     const hrac = ctx.players?.find(p => p.uid === state.seats[h]);
     const level = vnuceny || hrac?.botLevel || 'normal';
     const rng = ctx.rng;
-
-    if (s.faze === 'leknin') return this.uprav(state, this.botSkok(s, h, level, rng), ctx);
-    if (s.faze === 'plozeni') return this.uprav(state, this.botPlozeni(s, h, rng), ctx);
 
     const moznosti = tahy(s, h);
     if (!moznosti.length) return this.uprav(state, preskoc(s), ctx);
@@ -176,24 +166,26 @@ export default {
     const druh = s.odhaleno[i] ? s.pole[i] : null;
     let v = 0;
 
-    // Kdo na tom poli stojí. Na rákosu se žabka vyhodit nedá, královna ano.
+    // Kdo na tom poli stojí. Na kládu se dvěma soupeři se stejně nesmí.
     for (const z of zabyNa(s, r, c)) {
       if (z.hrac === h || !s.hraci[z.hrac].zije) continue;
-      if (z.kralovna) v += CENA.cizoKralovna;
-      else if (druh !== 'rakos') v += CENA.cizoZaba;
+      v += z.kralovna ? CENA.cizoKralovna : CENA.cizoZaba;
     }
 
     if (druh === null) {
       v += CENA.noveOtoceni;
       v += m.z.kralovna ? CENA.neznameKralovnou : CENA.neznameZabkou;
-    } else if (druh === 'komar') {
-      v += CENA.komar;
+    } else if (druh === 'komar' || druh === 'leknin') {
+      // Leknín dá tah navíc jen tehdy, když mám čím táhnout jinou žábou.
+      if (druh === 'komar' || vsechnyZaby(s, h).length > 1) v += CENA.komar;
     } else if (druh === 'stika') {
+      // Štika teď sežere i královnu – to je rovnou prohra.
       v += m.z.kralovna ? CENA.stikaKralovnou : CENA.stikaZabkou;
-    } else if (druh === 'samec') {
-      if (m.z.kralovna && s.hraci[h].zasoba > 0) v += CENA.samec;
-    } else if (druh === 'rakos') {
-      if (!m.z.kralovna) v += CENA.rakos;   // útočiště jen pro žabky
+    } else if (jeSamec(druh)) {
+      if (m.z.kralovna && !s.hraci[h].plodil[druh]) v += CENA.samec;
+    } else if (druh === 'klada') {
+      // Kláda je úkryt: ve dvou tam žábu nikdo nesebere.
+      if (mojeNa(s, h, r, c) === 1) v += CENA.klada;
     }
 
     // Královnu nestrkej tam, kam na ni někdo dosáhne. Easy tohle
@@ -229,7 +221,9 @@ export default {
     // a dívá se, jestli si tím tahem neodkryje královnu. Normal ani jedno –
     // je to jediné, čím se ty dvě úrovně liší.
     if (level === 'hard') {
-      if (!m.z.kralovna && druh !== 'rakos') {
+      // Na kládě ve dvou už žábu nikdo nesebere, tam ohrožení nehrozí.
+      const kryta = druh === 'klada' && mojeNa(s, h, r, c) >= 1;
+      if (!m.z.kralovna && !kryta) {
         v += CENA.zabaVOhrozeni * ohrozeno(s, h, r, c);
       }
       v += this.trestZaOdkryti(s, h, m);
@@ -254,38 +248,6 @@ export default {
     return utocniku > hlidacu ? -90 * (utocniku - hlidacu) : 0;
   },
 
-  botSkok(s, h, level, rng) {
-    const { r, c, kralovna } = s.vybrana;
-    const cile = cileLekninu(s, h, r, c);
-    if (!cile.length) return vzdejSe(s);
-
-    let nej = null, nejV = -Infinity;
-    for (const [tr, tc] of cile) {
-      const m = { z: { r, c, kralovna }, na: [tr, tc] };
-      const v = this.cena(s, h, m, level);
-      if (v > nejV) { nejV = v; nej = [tr, tc]; }
-    }
-    // Skákat se nemusí – když by to bylo horší než zůstat, zůstane.
-    const teď = this.cena(s, h, { z: { r, c, kralovna }, na: [r, c] }, level);
-    if (nejV <= teď) return vzdejSe(s);
-    return skok(s, nej[0], nej[1]);
-  },
-
-  botPlozeni(s, h, rng) {
-    const { r, c } = s.vybrana;
-    const cile = cilePlozeni(s, h, r, c);
-    if (!cile.length) return vzdejSe(s);
-    // Nová žabka ať radši stojí u královny a kryje ji.
-    let nej = cile[0], nejV = -Infinity;
-    for (const [tr, tc] of cile) {
-      const i = index(tr, tc);
-      let v = s.odhaleno[i] && s.pole[i] === 'stika' ? -500 : 0;
-      v -= ohrozeno(s, h, tr, tc) * 20;
-      if (v > nejV) { nejV = v; nej = [tr, tc]; }
-    }
-    return plozeni(s, nej[0], nej[1]);
-  },
-
   botThink() { return null; },
 
   // ── Pohled ─────────────────────────────────────────────────
@@ -303,21 +265,15 @@ export default {
       mySeat: seat,
       naTahu: s.naTahu,
       myTurn: naTahu,
-      faze: s.faze,
-      vybrana: s.vybrana,
-
       pole: Array.from({ length: POLI }, (_, i) => (s.odhaleno[i] ? s.pole[i] : null)),
       odhaleno: s.odhaleno,
-      zakazano: s.zakazano,
       zaby: s.zaby,
       hraci: s.hraci,
+      nucena: s.nucena,
+      lekninBlok: s.lekninBlok,
 
       // Co smím zrovna teď – počítá server, ne klient.
-      tahy: naTahu && s.faze === 'tah' ? tahy(s, seat) : [],
-      cileLekninu: naTahu && s.faze === 'leknin' && s.vybrana
-        ? cileLekninu(s, seat, s.vybrana.r, s.vybrana.c) : [],
-      cilePlozeni: naTahu && s.faze === 'plozeni' && s.vybrana
-        ? cilePlozeni(s, seat, s.vybrana.r, s.vybrana.c) : [],
+      tahy: naTahu ? tahy(s, seat) : [],
 
       vitez: s.vitez,
       casLeft: state.deadline ? Math.max(0, state.deadline - now) : 0,

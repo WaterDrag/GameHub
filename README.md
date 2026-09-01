@@ -783,63 +783,54 @@ Rybník je 8×8 kartiček lícem dolů. Každý má královnu a dvě žabky v ro
 skáče se o jedno pole všemi směry a kdo skočí na cizí žábu, sežere ji.
 Vyhrává poslední živá královna.
 
-### Hraje se podle pravidel, ne podle předlohy
+### Kartičky
 
-Přiložené HTML a dodaná pravidla se rozcházela na šesti místech. Držím se
-pravidel:
+| | co dělá |
+|---|---|
+| 🌿 Rákos | nic zvláštního |
+| 🦟 Komár | tah navíc, kteroukoliv žábou |
+| 🌸 Leknín | tah navíc, ale **jinou** žábou |
+| 🦈 Štika | sežere žábu **i královnu** |
+| 🪵 Kláda | vejdou se dvě vlastní žáby; ve dvou je nikdo nesebere, jedna se bere normálně |
+| 💙💚💛💜 Samečci | čtyři druhy, každý dá každé královně jednu žabku |
 
-| | předloha | pravidla (a tedy tady) |
-|---|---|---|
-| hráčů | 2 | 2 až 4 |
-| štika + královna | sežere ji, hráč končí | královna přežije, jen jí končí tah |
-| leknín | nutí hrát jinou žábou | **nepovinný** přeskok na jiný odhalený leknín |
-| sameček | nová žabka na totéž pole + vnucený tah | hráč si vybere volné **sousední** pole |
-| bahno a kláda | ano | v pravidlech nejsou – místo nich voda a rákos |
-| startovní kartičky | zůstávají skryté | ihned se otáčejí lícem nahoru |
+Efekty platí při **každém** vstupu, ne jen při prvním otočení. Nová žabka
+od samečka vzniká **pod královnou** a příští tah musí táhnout ona.
 
-### Co pravidla neříkají
+Zadání nechalo otevřené: na jedno pole se vejde jedna vlastní žába (kláda
+a sameček dvě), na kládu se dvěma soupeřovými se vůbec nevstoupí a startovní
+kartičky se rozdávají z rákosu – kdyby na rohu ležela štika, sežrala by
+královnu prvním tahem.
 
-Složení balíčku (20 vody, 12 rákosu, po 8 leknínu, komára, štiky a samečka),
-zásoba 4 žabek na hráče a to, že na jedno pole se vejde jen jedna **vlastní**
-žába. Startovní kartičky se rozdávají z bezpečných – kdyby na rohu ležela
-štika, stála by na ní žába od prvního tahu na poli, kam už nikdo nesmí.
+### Dvě věci, které vylezly z měření
 
-### Tři věci, které vylezly z měření
+**1. Komár a leknín se daly milkovat donekonečna.** Platí po celou hru, takže
+žába může skákat mezi dvěma sousedními a tah nikdy neskončí – partie se
+zastavovaly na stropu 4000 kroků a dohrálo se jen 19 z 40. Kartička proto dá
+tah navíc **jednou za tah**; napříč hrou funguje pořád. Medián teď 90 tahů.
 
-**1. Efekt se spouští při každém vstupu, ne jen při prvním otočení.**
-Napoprvé jsem to udělal „otočíš → vyhodnotíš, pak už je to jen pole“.
-Výsledek: **rozmnožení nenastalo ani jednou za partii**. Samečka skoro
-vždycky odhalí žabka, ne královna, a pro ni je kartička prázdná. Po opravě
-8,3 rozmnožení na partii. Komár se ale **sní** („žába si na něm pochutná“),
-jinak by dvě žáby u jednoho komára táhly do nekonečna.
-
-**2. Rákos nesmí chránit královnu.** Pravidla označují ochranu za nepovinnou
-variantu. S královnou se hra rozbije: naměřeno, že **50 % přeživších královen
-sedělo na konci na rákosu**, kde je nikdo nikdy nemohl chytit. Teď rákos
-kryje jen žabky.
-
-**3. Rybník musí vysychat.** I bez rákosu se dvě královny na 8×8 umí uhýbat
-navždy – z 30 partijí jich skončilo **pět** a zbytek se přehazoval mezi dvěma
-poli (2853 opakovaných pozic ze 3000 tahů). Po 40 tazích bez pokroku
-(otočená nová kartička, vyhozená žába nebo rozmnožení) proto rybník vyschne
-a vyhrává, kdo má víc žab; při shodě rozhoduje počet vyplozených žabek
-a pak tlak na cizí královny. Stejný typ stropu jako `MAX_ROUNDS` u Dostihů.
+**2. Rybník musí vysychat.** Dvě královny na 8×8 se umí uhýbat navždy – z 30
+partijí jich dřív skončilo pět a zbytek se přehazoval mezi dvěma poli (2853
+opakovaných pozic ze 3000 tahů). Po 40 tazích bez pokroku (otočená nová
+kartička, vyhozená žába nebo rozmnožení) proto rybník vyschne a vyhrává, kdo
+má víc žab. Stejný typ stropu jako `MAX_ROUNDS` u Dostihů.
 
 ### Boti
 
 | souboj | výhry | významnost |
 |---|---|---|
-| hard vs easy | 92,0 % | 14,5 σ |
-| normal vs easy | 94,6 % | 15,3 σ |
-| hard vs normal | 72,8 % | 7,3 σ |
+| hard vs easy | 90,2 % | 13,3 σ |
+| normal vs easy | 92,1 % | 14,1 σ |
+| hard vs normal | 60,7 % | 3,3 σ |
 
-(300 partijí na souboj.) Easy nehraje náhodně – jen si mezi slušnými tahy
-vybírá nepřesně a nehídá si královnu. Rozdíl mezi **normal a hard** je jediný:
-tvrdý bot nenechává žabky stát pod úderem a dívá se, jestli si tahem
-neodkryje královnu. Bez toho byly obě úrovně k nerozeznání (1,6 σ).
+Easy nehraje náhodně – jen si mezi slušnými tahy vybírá nepřesně a nehlídá
+si královnu. Rozdíl mezi **normal a hard** je jediný: tvrdý bot nenechává
+žabky stát pod úderem a dívá se, jestli si tahem neodkryje královnu.
 
-Hon na královnu nestačí stavět na „postav se vedle ní“ – uhne. Bot proto
-počítá i to, **kolik jí ten tah zavře únikových polí**.
+Když štika sežere i královnu, je neotčená kartička pro ni **13% šance na
+okamžitou prohru** (8 štik z 60 neznámých) – cena za průzkum královnou je
+v botovi spočítaná z toho, ne odhadnutá.
+
 
 ## Šachy
 
