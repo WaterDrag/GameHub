@@ -139,8 +139,10 @@ function zapas(seed, levely) {
   // Komár – tah navíc
   const poK = tah(priprav('komar'), 0, 0, true, 1, 1);
   zkus('komár dá tah navíc', poK.naTahu === 0, 'hraje dál');
-  zkus('a smí se i toutéž žábou',
-    tahy(poK, 0).some(t => t.z.r === 1 && t.z.c === 1), 'ano');
+  zkus('a musí se toutéž žábou',
+    tahy(poK, 0).every(t => t.z.r === 1 && t.z.c === 1), 'jen z 1-1');
+  zkus('jinou žábou po komárovi ne',
+    !tahy(poK, 0).some(t => t.z.r === 0 && t.z.c === 1), 'ostatní zablokované');
 
   // Komár platí pořád, ne jen poprvé – ale v jednom tahu jen jednou.
   const sK2 = priprav('komar');

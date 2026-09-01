@@ -1989,9 +1989,23 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .kv-tecka{width:9px; height:9px; border-radius:50%; background:var(--c)}
 .kv-jmeno{font-size:.74rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .kv-pocty{font-size:.72rem; letter-spacing:-.5px}
-.kv-samci{grid-column:1/-1; display:flex; gap:3px; font-size:.68rem; line-height:1}
-.kv-samec{opacity:1}
-.kv-samec.pryc{opacity:.22; filter:grayscale(1)}
+/* Indikátor u jména: který ze čtyř samečků už pro tuhle královnu plodil.
+   Třída je `kv-si`, ne `kv-samec` – ta už patří kartičce na desce
+   a indikátor by dostal její zlaté pozadí. */
+.kv-samci{
+  grid-column:1/-1; display:flex; align-items:center; gap:3px;
+  font-size:.72rem; line-height:1;
+}
+.kv-samci small{font-size:.58rem; color:var(--tx3); margin-left:3px}
+.kv-si{
+  position:relative; opacity:1;
+  filter:drop-shadow(0 0 2px color-mix(in srgb,var(--c) 70%,transparent));
+}
+.kv-si.pryc{opacity:.3; filter:grayscale(1)}
+.kv-si.pryc::after{
+  content:''; position:absolute; left:-1px; right:-1px; top:50%;
+  height:1px; background:currentColor; opacity:.8;
+}
 
 .kv-log{
   flex:1; min-height:70px; overflow-y:auto; font-size:.68rem; line-height:1.5;

@@ -176,7 +176,8 @@ export default {
       v += CENA.noveOtoceni;
       v += m.z.kralovna ? CENA.neznameKralovnou : CENA.neznameZabkou;
     } else if (druh === 'komar' || druh === 'leknin') {
-      // Leknín dá tah navíc jen tehdy, když mám čím táhnout jinou žábou.
+      // Leknín dá tah navíc jen tehdy, když mám čím táhnout JINOU žábou;
+      // komár naopak pokračuje touž, takže platí vždycky.
       if (druh === 'komar' || vsechnyZaby(s, h).length > 1) v += CENA.komar;
     } else if (druh === 'stika') {
       // Štika teď sežere i královnu – to je rovnou prohra.
@@ -270,7 +271,7 @@ export default {
       zaby: s.zaby,
       hraci: s.hraci,
       nucena: s.nucena,
-      lekninBlok: s.lekninBlok,
+      omezeni: s.omezeni,
 
       // Co smím zrovna teď – počítá server, ne klient.
       tahy: naTahu ? tahy(s, seat) : [],

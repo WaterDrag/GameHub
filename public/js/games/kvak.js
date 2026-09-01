@@ -212,13 +212,15 @@ export default {
       const d = document.createElement('div');
       d.className = `kv-hrac${h === v.naTahu && zije ? ' on' : ''}${h === v.mySeat ? ' ja' : ''}${zije ? '' : ' mrtvy'}`;
       d.style.setProperty('--c', BARVY[h]);
-      // Samečci ukazují, kolik žabek ještě může přibýt.
-      const samci = SAMCI.map(x => `<span class="kv-samec${plodil[x] ? ' pryc' : ''}">${KARTY[x].emoji}</span>`).join('');
+      // Který sameček už pro tuhle královnu plodil. Vybledlý = vyčerpaný.
+      const zbyva = SAMCI.filter(x => !plodil[x]).length;
+      const samci = SAMCI.map(x => `<span class="kv-si${plodil[x] ? ' pryc' : ''}"
+        title="${KARTY[x].nazev} – ${plodil[x] ? 'už plodil' : 'ještě dá žabku'}">${KARTY[x].emoji}</span>`).join('');
       d.innerHTML = `
         <span class="kv-tecka"></span>
         <span class="kv-jmeno">${jmeno}</span>
         <span class="kv-pocty">${zije ? `${pocty[h].kral ? '👑' : '💀'} 🐸×${pocty[h].zab}` : '💀'}</span>
-        <span class="kv-samci">${samci}</span>`;
+        <span class="kv-samci">${samci}<small>${zbyva ? `zbývají ${zbyva}` : 'všichni využití'}</small></span>`;
       box.append(d);
     }
   },
@@ -234,7 +236,9 @@ export default {
     const pokyn = this.root.querySelector('#kvPokyn');
     pokyn.textContent = !v.myTurn ? ''
       : nucena ? 'Nová žabka od samečka musí táhnout jako první.'
-        : v.lekninBlok ? 'Leknín: tah navíc, ale jinou žábou.'
+        : v.omezeni ? (v.omezeni.typ === 'jen'
+          ? 'Komár: táhneš znovu touž žábou.'
+          : 'Leknín: tah navíc, ale jinou žábou.')
           : this.vybrana ? 'Klikni na sousední pole. Dalším klikem na žábu výběr zrušíš.'
             : 'Klikni na svou žábu.';
   },

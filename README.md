@@ -788,7 +788,7 @@ Vyhrává poslední živá královna.
 | | co dělá |
 |---|---|
 | 🌿 Rákos | nic zvláštního |
-| 🦟 Komár | tah navíc, kteroukoliv žábou |
+| 🦟 Komár | tah navíc – **touž** žábou, co na něj šlápla |
 | 🌸 Leknín | tah navíc, ale **jinou** žábou |
 | 🦈 Štika | sežere žábu **i královnu** |
 | 🪵 Kláda | vejdou se dvě vlastní žáby; ve dvou je nikdo nesebere, jedna se bere normálně |

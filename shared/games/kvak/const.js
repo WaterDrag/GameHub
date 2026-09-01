@@ -25,7 +25,7 @@ export const SAMCI = ['samec1', 'samec2', 'samec3', 'samec4'];
 export const KARTY = {
   rakos: { nazev: 'Rákos', emoji: '🌿', popis: 'Obyčejné pole, nic se neděje.' },
   leknin: { nazev: 'Leknín', emoji: '🌸', popis: 'Tah navíc, ale JINOU žábou.' },
-  komar: { nazev: 'Komár', emoji: '🦟', popis: 'Tah navíc, kteroukoliv žábou.' },
+  komar: { nazev: 'Komár', emoji: '🦟', popis: 'Tah navíc – touž žábou, co na něj šlápla.' },
   stika: { nazev: 'Štika', emoji: '🦈', popis: 'Sežere žábu i královnu.' },
   klada: { nazev: 'Kláda', emoji: '🪵', popis: 'Vejdou se dvě vlastní žáby. Ve dvou je nikdo nesebere.' },
   samec1: { nazev: 'Modrý sameček', emoji: '💙', popis: 'Královně přidá žabku. Každý sameček jednou.' },

@@ -3,7 +3,7 @@
 //
 //  Efekty kartiček zadal uživatel 1. 9. 2026 a platí přesně tyhle:
 //    • Rákos    – nic zvláštního
-//    • Komár    – tah navíc, kteroukoliv žábou
+//    • Komár    – tah navíc, ale TOUTɎ žábou, co na něj šlápla
 //    • Leknín   – tah navíc, ale JINOU žábou
 //    • Štika    – sežere žábu i královnu
 //    • Kláda    – vejdou se dvě vlastní žáby; ve dvou je nikdo nesebere
@@ -53,8 +53,10 @@ export function novaHra(hracu, rng) {
     naTahu: 0,
     // Nová žabka od samečka musí příští tah táhnout.
     nucena: Array.from({ length: hracu }, () => null),
-    // Leknín dává tah navíc, ale ne tou žábou, co na něm stojí.
-    lekninBlok: null,
+    // Kdo smí hrát tah navíc. Komár a leknín jsou zrcadla:
+    //   {typ:'jen',   klic} – komár: jen ta žába, co na něj šlápla
+    //   {typ:'krome', klic} – leknín: kterákoliv jiná
+    omezeni: null,
     // Kartičky, které už v TOMHLE tahu daly tah navíc. Komár a leknín
     // platí po celou hru, ale dvě sousední by jinak šly milkovat donekonečna:
     // žába by mezi nimi skákala a tah by nikdy neskončil (naměřeno –
@@ -112,13 +114,14 @@ export function lzeVstoupit(s, h, r, c) {
   return true;
 }
 
-// Kterou žábou se teď smí hrát. Nucený tah po rozmnožení přebíjí
-// všechno; leknín naopak jednu žábu zakazuje.
+// Kterou žábou se teď smí hrát. Nucený tah po rozmnožení přebíjí všechno,
+// pak platí omezení od komára nebo leknínu.
 export function lzeHrat(s, h, r, c) {
   const k = klic(r, c);
   if (s.nucena[h]) return s.nucena[h] === k;
-  if (s.lekninBlok === k) return false;
-  return true;
+  const o = s.omezeni;
+  if (!o) return true;
+  return o.typ === 'jen' ? o.klic === k : o.klic !== k;
 }
 
 export function kamMuze(s, h, r, c) {
@@ -164,7 +167,7 @@ function vyrad(n, h, duvod) {
 
 // ── Konec tahu ───────────────────────────────────────────────
 function dalsi(n) {
-  n.lekninBlok = null;
+  n.omezeni = null;
   n.pouzito = [];
   n.bezPokroku = n.pokrok ? 0 : n.bezPokroku + 1;
   n.pokrok = false;
@@ -253,24 +256,20 @@ function efekt(n, h, r, c, kralovna) {
     if (n.pouzito.includes(k)) return false;   // v tomhle tahu už dala
     n.pouzito.push(k);
 
-    if (druh === 'komar') {
-      if (!tahy(n, h).length) {
-        rekni(n, 'Komár, ale žádná žába už nemá kam.');
-        return false;
-      }
-      rekni(n, 'Komár! Táhneš ještě jednou.');
-      return true;
-    }
-
-    // Leknín: tah navíc, ale jinou žábou. Když jinou nemám, tah končí.
-    const drive = n.lekninBlok;
-    n.lekninBlok = k;
+    // Komár i leknín dají tah navíc, jen si vybírají opačně:
+    // komár touž žábou, leknín kteroukoliv jinou.
+    const drive = n.omezeni;
+    n.omezeni = { typ: druh === 'komar' ? 'jen' : 'krome', klic: k };
     if (!tahy(n, h).length) {
-      n.lekninBlok = drive;
-      rekni(n, 'Leknín, ale jinou žábou se táhnout nedá.');
+      n.omezeni = drive;
+      rekni(n, druh === 'komar'
+        ? 'Komár, ale ta žába už nemá kam.'
+        : 'Leknín, ale jinou žábou se táhnout nedá.');
       return false;
     }
-    rekni(n, 'Leknín! Tah navíc, ale jinou žábou.');
+    rekni(n, druh === 'komar'
+      ? 'Komár! Táhneš ještě jednou touž žábou.'
+      : 'Leknín! Tah navíc, ale jinou žábou.');
     return true;
   }
 
