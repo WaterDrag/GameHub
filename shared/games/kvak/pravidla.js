@@ -120,23 +120,28 @@ export function lzeVstoupit(s, h, r, c) {
 
 // Kterou žábou se teď smí hrát. Nucený tah po rozmnožení přebíjí všechno,
 // pak platí omezení od komára nebo leknínu.
-export function lzeHrat(s, h, r, c) {
+//
+//  `nucena` musí držet i to, KTERÁ žába to je, ne jenom pole. Nová žabka
+//  vzniká pod královnou, takže na tom poli stojí obě – když se hlídalo jen
+//  pole, vyhověla mu i královna a odtáhla místo žabky.
+export function lzeHrat(s, h, r, c, kralovna = false) {
   const k = klic(r, c);
-  if (s.nucena[h]) return s.nucena[h] === k;
+  const nu = s.nucena[h];
+  if (nu) return nu.klic === k && !!nu.kralovna === !!kralovna;
   const o = s.omezeni;
   if (!o) return true;
   return o.typ === 'jen' ? o.klic === k : o.klic !== k;
 }
 
-export function kamMuze(s, h, r, c) {
-  if (!lzeHrat(s, h, r, c)) return [];
+export function kamMuze(s, h, r, c, kralovna = false) {
+  if (!lzeHrat(s, h, r, c, kralovna)) return [];
   return sousedi(r, c).filter(([nr, nc]) => lzeVstoupit(s, h, nr, nc));
 }
 
 export function tahy(s, h = s.naTahu) {
   const out = [];
   for (const z of vsechnyZaby(s, h)) {
-    for (const na of kamMuze(s, h, z.r, z.c)) out.push({ z, na });
+    for (const na of kamMuze(s, h, z.r, z.c, z.kralovna)) out.push({ z, na });
   }
   return out;
 }
@@ -295,7 +300,7 @@ function efekt(n, h, r, c, kralovna) {
     }
     n.hraci[h].plodil[druh] = true;
     poloz(n, r, c, { hrac: h, kralovna: false });
-    n.nucena[h] = klic(r, c);
+    n.nucena[h] = { klic: klic(r, c), kralovna: false };
     n.pokrok = true;
     rekni(n, `${jmeno(h)} má novou žabku – příští tah musí táhnout ona.`);
     return false;
@@ -325,7 +330,7 @@ export function tah(s, zR, zC, kralovna, naR, naC) {
   if (n.vitez !== null) return n;
   if (!naDesce(zR, zC) || !naDesce(naR, naC)) return n;
   if (!mojeZabyNa(n, h, zR, zC).some(z => z.kralovna === kralovna)) return n;
-  if (!kamMuze(n, h, zR, zC).some(([r, c]) => r === naR && c === naC)) return n;
+  if (!kamMuze(n, h, zR, zC, kralovna).some(([r, c]) => r === naR && c === naC)) return n;
 
   const zaba = seber(n, zR, zC, h, kralovna);
   if (!zaba) return n;
@@ -339,8 +344,9 @@ export function tah(s, zR, zC, kralovna, naR, naC) {
   poloz(n, naR, naC, zaba);
   n.akci++;
 
-  // Nucený tah je splněný, jakmile se tou žabkou hnulo.
-  if (n.nucena[h] === klic(zR, zC)) n.nucena[h] = null;
+  // Nucený tah je splněný, až když se hnula PRÁVĚ TA žabka.
+  const nu = n.nucena[h];
+  if (nu && nu.klic === klic(zR, zC) && !!nu.kralovna === !!kralovna) n.nucena[h] = null;
 
   const pokracuje = efekt(n, h, naR, naC, kralovna);
   if (!pokracuje) dalsi(n);

@@ -154,7 +154,7 @@ export default {
 
     const cile = this.cileVybrane();
     const lzeTahnout = new Set((v.tahy || []).map(t => `${t.z.r}-${t.z.c}`));
-    const nucena = v.nucena?.[v.mySeat] || null;
+    const nucena = v.nucena?.[v.mySeat]?.klic || null;
 
     for (let i = 0; i < POLI; i++) {
       const r = Math.floor(i / STRANA), c = i % STRANA;

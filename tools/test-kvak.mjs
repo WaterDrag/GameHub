@@ -234,9 +234,22 @@ function zapas(seed, levely) {
   zkus('a vznikne na TÉMŽE poli',
     mojeZabyNa(po, 0, 1, 1).filter(z => !z.kralovna).length === 1, 'pod královnou');
   zkus('sameček se odškrtne', po.hraci[0].plodil.samec1 === true, 'samec1 využitý');
-  zkus('a příští tah musí táhnout ona', po.nucena[0] === '1-1', po.nucena[0]);
+  zkus('a příští tah musí táhnout ona',
+    po.nucena[0]?.klic === '1-1', JSON.stringify(po.nucena[0]));
   zkus('nucení opravdu omezuje výběr',
-    tahy(po, 0).every(t => t.z.r === 1 && t.z.c === 1), 'jen z 1-1');
+    tahy({ ...po, naTahu: 0 }, 0).every(t => t.z.r === 1 && t.z.c === 1), 'jen z 1-1');
+
+  // Regrese: nová žabka vzniká POD královnou, takže na tom poli stojí obě.
+  // Když se hlídalo jen pole a ne žába, vyhověla nucení i královna a odtáhla
+  // místo žabky – hráč hlásil „po spawnu se hýbe žábou, ne královnou“ naopak.
+  zkus('a nucení platí na ŽABKU, ne na pole',
+    tahy({ ...po, naTahu: 0 }, 0).every(t => !t.z.kralovna), 'královna nesmí');
+  const kralUnikla = tah({ ...po, naTahu: 0 }, 1, 1, true, 1, 2);
+  zkus('královna se z toho pole nevyvlékne',
+    kralUnikla.akci === po.akci, 'odmítnuto');
+  const zabkaTahla = tah({ ...po, naTahu: 0 }, 1, 1, false, 1, 2);
+  zkus('žabkou to jde a nucení se tím smaže',
+    zabkaTahla.akci > po.akci && zabkaTahla.nucena[0] === null, 'ano');
   zkus('tah tím končí', po.naTahu === 1, 'na tahu je druhý');
 
   // Podruhé týž sameček nedá nic.

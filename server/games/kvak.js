@@ -232,7 +232,7 @@ export default {
         for (const z of zabyNa(s, nr, nc)) {
           if (z.hrac !== h && z.kralovna && s.hraci[z.hrac].zije) {
             v += CENA.hrozbaNaKralovnu;
-            const uteky = kamMuze(s, z.hrac, nr, nc);
+            const uteky = kamMuze(s, z.hrac, nr, nc, true);   // je to královna
             const zavrena = uteky.filter(([ur, uc]) => ur === r && uc === c).length;
             v += CENA.ubranePole * zavrena;
             if (uteky.length <= 2) v += CENA.ubranePole * 2;   // už je skoro v koutu
