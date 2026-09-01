@@ -377,13 +377,25 @@ function zapas(seed, levely, mody = {}) {
   zkus('ale přesný doskok jde',
     tahy(sl, 0, 3).some(x => x.fig === 0 && x.na === O2), 'hod 3 dojde přesně');
 
-  // Uvěznit se dá i JINOU figurkou – tím, že jí zaplní poslední volné místo.
+  // Když už figurka před domečkem stojí a někdo jí zaplní poslední volné
+  // místo, tah PROJDE a ta figurka couvne (rozhodnutí uživatele – lepší než
+  // tah zakazovat).
   const sl2 = novaHra('mala', 2, 4, { double: true });
   sl2.poz[0] = [O2 - 1, O2 + 1, O2 + 2, O2 - 3];  // f0 těsně před cílem, volné O2 a O2+3
-  zkus('ani zaplněním posledního místa jinou figurkou',
-    !tahy(sl2, 0, 6).some(x => x.fig === 3), 'f3 by na O2+3 uvěznila f0');
-  zkus('když ale zůstane kam, tah projde',
-    tahy(sl2, 0, 3).some(x => x.fig === 3 && x.na === O2), 'f3 na O2 nechá f0 dojít na O2+3');
+  zkus('zaplnění posledního místa se nezakazuje',
+    tahy(sl2, 0, 6).some(x => x.fig === 3 && x.na === O2 + 3), 'f3 na O2+3 jde');
+
+  const poUhnuti = tah({ ...sl2, hozeno: true, kostka: 6, kostky: [3, 3] }, 3, false);
+  zkus('a figurka před domečkem couvne', poUhnuti.poz[0][0] === O2 - 2,
+    `f0 ${O2 - 1} → ${poUhnuti.poz[0][0]}`);
+  zkus('řekne se to', /couvla/.test(poUhnuti.hlaska?.text || ''),
+    poUhnuti.hlaska?.text || 'nic');
+  zkus('a tím zase dojede', tahy(poUhnuti, 0, 2).some(x => x.fig === 0 && x.na === O2),
+    'hodem 2 do cíle');
+
+  zkus('když zůstane kam, nic se nemění',
+    tah({ ...sl2, hozeno: true, kostka: 3, kostky: [1, 2] }, 3, false).poz[0][0] === O2 - 1,
+    'f0 zůstala stát');
 
   // S jednou kostkou se nic z toho neřeší – jednička padá běžně.
   const sl3 = novaHra('mala', 2, 4, {});

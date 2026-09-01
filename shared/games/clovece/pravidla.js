@@ -113,7 +113,19 @@ function slepaUlicka(s, m, poz, na) {
   return true;
 }
 
-const kolikZaseknutych = (s, m, poz) => poz.filter(k => slepaUlicka(s, m, poz, k)).length;
+// Kam by zaseknutá figurka couvla, aby zase měla kudy? Vrací krok, nebo null.
+// Couvá se po vlastních políčkách dráhy a nevyhazuje se při tom – není to
+// útok, jen uhnutí.
+function kamUhnout(s, m, poz, k) {
+  for (let d = 1; d <= 3; d++) {
+    const zpet = k - d;
+    if (zpet < 0) return null;
+    if (poz.some(x => x === zpet)) continue;      // stojí tam moje figurka
+    const zkus = poz.map(x => (x === k ? zpet : x));
+    if (!slepaUlicka(s, m, zkus, zpet)) return zpet;
+  }
+  return null;
+}
 
 // Padly u Double trouble dvě stejné? Na těch se tah nezastavuje.
 export const jeDvojice = (s) => !!(s.mody?.double && s.kostky
@@ -144,12 +156,30 @@ export function cesta(s, hrac, z, na) {
 
 // ── Legální tahy ─────────────────────────────────────────────
 // Vrací pole {fig, z, na, vyhodi, couv, preskoci}.
-// Zasekne tenhle tah některou moji figurku, která zaseknutá ještě není?
+// Zasekne tenhle tah některou moji figurku tak, že už jí nejde ani uhnout?
+// Samé zaseknutí tah nezakazuje – figurka před domečkem prostě couvne
+// (rozhodnutí uživatele). Zakázaný je až tah, po kterém by neměla kam.
 function zasekneTah(s, m, hrac, fig, na) {
   if (!s.mody?.double || s.mody.boomerang) return false;
   const poz = s.poz[hrac].slice();
   poz[fig] = na;
-  return kolikZaseknutych(s, m, poz) > kolikZaseknutych(s, m, s.poz[hrac]);
+  if (slepaUlicka(s, m, poz, na)) return true;     // do slepé uličky se nevstupuje
+  return poz.some((k, i) => i !== fig && slepaUlicka(s, m, poz, k)
+    && kamUhnout(s, m, poz, k) === null);
+}
+
+// Po tahu uhne každá moje figurka, která by už neměla jak dojet.
+function uhniZeSlepychUlicek(n, hrac) {
+  if (!n.mody?.double || n.mody.boomerang) return;
+  const m = mapaHry(n);
+  for (let f = 0; f < n.figurek; f++) {
+    const k = n.poz[hrac][f];
+    if (!slepaUlicka(n, m, n.poz[hrac], k)) continue;
+    const zpet = kamUhnout(n, m, n.poz[hrac], k);
+    if (zpet === null) continue;
+    n.poz[hrac][f] = zpet;
+    rekni(n, 'double', `Figurka před domečkem už neměla jak dojet – couvla o ${k - zpet}.`);
+  }
 }
 
 export function tahy(s, hrac = s.naTahu, kostka = s.kostka) {
@@ -315,6 +345,7 @@ export function tah(s, fig, couv = false, nahoda = 1) {
 
   n.poz[n.naTahu][fig] = t.na;
   if (t.vyhodi) n.poz[t.vyhodi.hrac][t.vyhodi.fig] = V_DOMECKU;
+  uhniZeSlepychUlicek(n, n.naTahu);
   n.posledni = { hrac: n.naTahu, fig, z: t.z, na: t.na, vyhodil: t.vyhodi || null, couv: !!t.couv };
   n.tahu++;
 
