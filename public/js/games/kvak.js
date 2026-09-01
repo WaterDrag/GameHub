@@ -11,7 +11,7 @@
 //  jen „skáču žábou z A na B“, žádné mezifáze nejsou.
 // ─────────────────────────────────────────────────────────────
 import {
-  STRANA, POLI, KARTY, LEGENDA, SAMCI, BARVY, jeSamec, klic,
+  STRANA, POLI, KARTY, LEGENDA, SAMCI, BARVY, SPINAVA, jeSamec, klic,
 } from '/shared/games/kvak/const.js';
 
 export default {
@@ -77,6 +77,15 @@ export default {
         <span><b>${id === 'samec1' ? 'Samečci (4×)' : k.nazev}</b><small>${k.popis}</small></span>`;
       leg.append(d);
     }
+    // Rub kartičky vidí každý už před otočením – patří do legendy taky.
+    const rub = document.createElement('div');
+    rub.className = 'kv-rub';
+    rub.innerHTML = `
+      <div class="kv-leg"><span class="kv-rub-i cista"></span>
+        <span><b>Čistá voda</b><small>Štika tu nikdy není.</small></span></div>
+      <div class="kv-leg"><span class="kv-rub-i spinava"></span>
+        <span><b>Špinavá voda</b><small>Jen tady může číhat štika.</small></span></div>`;
+    leg.append(rub);
 
     this.render(ctx.view);
   },
@@ -154,14 +163,17 @@ export default {
       const zaby = v.zaby[klic(r, c)] || [];
       const k = klic(r, c);
 
-      const podpis = `${druh}|${JSON.stringify(zaby)}`;
+      const spinava = v.voda?.[i] === SPINAVA;
+      const podpis = `${druh}|${spinava}|${JSON.stringify(zaby)}`;
       if (el._podpis !== podpis) {
         el._podpis = podpis;
         el.querySelector('.kv-karta').textContent = druh ? KARTY[druh].emoji : '';
         el.className = 'kv-pole'
-          + (druh ? ` odhalene kv-${jeSamec(druh) ? 'samec' : druh}` : ' skryte')
+          + (druh ? ` odhalene kv-${jeSamec(druh) ? 'samec' : druh}`
+            : ` skryte ${spinava ? 'spinava' : 'cista'}`)
           + (zaby.length ? ' ma-zabu' : '');
-        el.title = druh ? `${KARTY[druh].nazev} – ${KARTY[druh].popis}` : 'Neotočená kartička';
+        el.title = druh ? `${KARTY[druh].nazev} – ${KARTY[druh].popis}`
+          : (spinava ? 'Špinavá voda – může tu číhat štika' : 'Čistá voda – štika tu není');
 
         const box = el.querySelector('.kv-zaby');
         box.innerHTML = '';

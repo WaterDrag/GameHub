@@ -790,9 +790,21 @@ Vyhrává poslední živá královna.
 | 🌿 Rákos | nic zvláštního |
 | 🦟 Komár | tah navíc – **touž** žábou, co na něj šlápla |
 | 🌸 Leknín | tah navíc, ale **jinou** žábou |
-| 🦈 Štika | sežere žábu **i královnu** |
+| 🦈 Štika | sežere žábu **i královnu**; leží jen ve špinavé vodě |
 | 🪵 Kláda | vejdou se dvě vlastní žáby; ve dvou je nikdo nesebere, jedna se bere normálně |
 | 💙💚💛💜 Samečci | čtyři druhy, každý dá každé královně jednu žabku |
+
+### Dva rubem: čistá a špinavá voda
+
+Neotočená kartička není úplná neznámá. Asi **40 % polí je špinavých** a
+**všech osm štik leží jen tam**; v čisté vodě štika nikdy není. Rub vidí
+každý, takže se dá plánovat: královna může čistou vodu zkoumat bez rizika,
+špinavá je ruleta zhruba 1 : 3. Startovní pole jsou vždycky čistá.
+
+**Tohle je zároveň rozdíl mezi úrovněmi botů.** Tvrdý bot barvu vody čte
+a riziko počítá z veřejných čísel (kolik štik už padlo, kolik špinavých polí
+zbývá); slabší se bojí každé neotočené kartičky stejně. **Rozdíl je
+v informaci, ne ve štěstí** – a dělá to 71,7 % výher (6,6 σ).
 
 Efekty platí při **každém** vstupu, ne jen při prvním otočení. Nová žabka
 od samečka vzniká **pod královnou** a příští tah musí táhnout ona.
@@ -819,17 +831,17 @@ má víc žab. Stejný typ stropu jako `MAX_ROUNDS` u Dostihů.
 
 | souboj | výhry | významnost |
 |---|---|---|
-| hard vs easy | 90,2 % | 13,3 σ |
-| normal vs easy | 92,1 % | 14,1 σ |
-| hard vs normal | 60,7 % | 3,3 σ |
+| hard vs easy | 97,7 % | 16,5 σ |
+| normal vs easy | 93,3 % | 14,6 σ |
+| hard vs normal | 71,7 % | 6,6 σ |
 
 Easy nehraje náhodně – jen si mezi slušnými tahy vybírá nepřesně a nehlídá
 si královnu. Rozdíl mezi **normal a hard** je jediný: tvrdý bot nenechává
 žabky stát pod úderem a dívá se, jestli si tahem neodkryje královnu.
 
-Když štika sežere i královnu, je neotčená kartička pro ni **13% šance na
-okamžitou prohru** (8 štik z 60 neznámých) – cena za průzkum královnou je
-v botovi spočítaná z toho, ne odhadnutá.
+Rozdíl mezi **normal a hard** je ve dvou věcech: tvrdý bot čte barvu vody
+(viz výš) a nenechává žabky stát pod úderem. Bez toho byly úrovně
+k nerozeznání (0,3 σ).
 
 
 ## Šachy

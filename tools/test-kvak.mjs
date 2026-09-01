@@ -8,8 +8,8 @@ import {
   vsechnyZaby, zabyNa, mojeZabyNa, maKralovnu, druhNa,
 } from '../shared/games/kvak/pravidla.js';
 import {
-  POLI, SLOZENI, STARTY, SAMCI, KARTY, KAPACITA, jeSamec,
-  index, klic, novaDeska,
+  POLI, SLOZENI, STARTY, SAMCI, KARTY, KAPACITA, PODIL_SPINAVE,
+  CISTA, SPINAVA, jeSamec, index, klic, novaDeska,
 } from '../shared/games/kvak/const.js';
 import { makeRng } from '../shared/rng.js';
 
@@ -73,7 +73,7 @@ function zapas(seed, levely) {
 
 // ── Deska ────────────────────────────────────────────────────
 {
-  const pole = novaDeska(makeRng(1), 4);
+  const { pole, voda } = novaDeska(makeRng(1), 4);
   zkus('64 kartiček', pole.length === POLI, String(pole.length));
 
   const pocty = {};
@@ -89,7 +89,28 @@ function zapas(seed, levely) {
   }
   zkus('na startovních polích není past', bezpecnych === startu, `${bezpecnych}/${startu}`);
   zkus('jiný seed dá jinou desku',
-    pole.join() !== novaDeska(makeRng(2), 4).join(), 'liší se');
+    pole.join() !== novaDeska(makeRng(2), 4).pole.join(), 'liší se');
+
+  // Dva druhy vody: ve špinavé může být štika, v čisté nikdy.
+  const spinavych = voda.filter(x => x === SPINAVA).length;
+  zkus('špinavé vody je asi 40 %',
+    Math.abs(spinavych / POLI - PODIL_SPINAVE) < 0.05, `${Math.round(100 * spinavych / POLI)} %`);
+  zkus('v čisté vodě není ani jedna štika',
+    pole.every((d, i) => d !== 'stika' || voda[i] === SPINAVA), 'všech 8 ve špinavé');
+  zkus('a startovní pole jsou čistá', (() => {
+    for (let h = 0; h < 4; h++) for (const [r, c] of STARTY[h]) {
+      if (voda[index(r, c)] !== CISTA) return false;
+    }
+    return true;
+  })(), 'ano');
+
+  // Na víc seedech, ať to není náhoda jednoho rozdání.
+  let spatne = 0;
+  for (let i = 0; i < 40; i++) {
+    const d = novaDeska(makeRng(500 + i), 4);
+    if (!d.pole.every((x, j) => x !== 'stika' || d.voda[j] === SPINAVA)) spatne++;
+  }
+  zkus('a platí to na 40 deskách', spatne === 0, `${spatne} chybných`);
 }
 
 // ── Start hry ────────────────────────────────────────────────

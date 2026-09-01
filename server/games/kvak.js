@@ -17,7 +17,7 @@ import {
   vsechnyZaby, zabyNa, druhNa,
 } from '../../shared/games/kvak/pravidla.js';
 import {
-  POLI, KARTY, SAMCI, jeSamec, klic, index, sousedi,
+  POLI, KARTY, SAMCI, SLOZENI, SPINAVA, jeSamec, klic, index, sousedi,
 } from '../../shared/games/kvak/const.js';
 
 const TAH_MS = 90000;      // kolik má člověk na tah
@@ -33,7 +33,8 @@ const CENA = {
   samec: 90,
   rakos: 30,
   neznameZabkou: 14,
-  neznameKralovnou: -520,   // 8 štik z 60 = 13 % šance na okamžitou prohru
+  // `stikaKralovnou` a `stikaZabkou` se násobí pravděpodobností štiky,
+  // takže tady už žádná paušální pokuta za neznámou kartičku není.
   stikaZabkou: -300,
   stikaKralovnou: -4000,  // štika sežere i královnu – rovnou prohra
   kralovnaVOhrozeni: -260,
@@ -44,6 +45,9 @@ const CENA = {
   ubranePole: 26,       // za každé pole, které cizí královně zavřu
   zabaVOhrozeni: -58,   // jen hard: nenechává žabky viset pod úderem
 };
+
+// Kdo barvu vody nečte, počítá se stejným rizikem všude: 8 štik z 60.
+const PRUMERNE_RIZIKO = 8 / 60;
 
 const mojeNa = (s, h, r, c) => zabyNa(s, r, c).filter(z => z.hrac === h).length;
 
@@ -86,6 +90,21 @@ export default {
     const state = { hra, seats, deadline: 0, botAt: 0 };
     this.prepocti(state, null);
     return state;
+  },
+
+  // Jaká je šance, že pod neotočenou kartičkou číhá štika. Počítá se
+  // z toho, co vidí všichni: čistá voda štiku mít nemůže, ve špinavé je
+  // poměr zbývajících štik k neotočeným špinavým polím. Bot si tedy
+  // nekouká pod kartičky – počítá totéž co hráč.
+  rizikoStiky(s, i) {
+    if (s.voda[i] !== SPINAVA) return 0;
+    let skryteSpinave = 0, videnoStik = 0;
+    for (let j = 0; j < POLI; j++) {
+      if (s.odhaleno[j]) { if (s.pole[j] === 'stika') videnoStik++; }
+      else if (s.voda[j] === SPINAVA) skryteSpinave++;
+    }
+    const zbyva = Math.max(0, SLOZENI.stika - videnoStik);
+    return skryteSpinave > 0 ? Math.min(1, zbyva / skryteSpinave) : 0;
   },
 
   jeBot(state, ctx, h) {
@@ -174,7 +193,14 @@ export default {
 
     if (druh === null) {
       v += CENA.noveOtoceni;
-      v += m.z.kralovna ? CENA.neznameKralovnou : CENA.neznameZabkou;
+      // Štiky leží jen ve špinavé vodě. TVRDÝ bot to čte a do čisté vody
+      // klidně posílá i královnu; slabší se bojí každé neotočené kartičky
+      // stejně. Právě tím se úrovně liší – rozdíl je v informaci, ne v štěstí.
+      // Riziko se počítá z veřejných čísel, ne z toho, co je pod kartičkou.
+      const p = level === 'hard' ? this.rizikoStiky(s, i) : PRUMERNE_RIZIKO;
+      v += m.z.kralovna
+        ? CENA.stikaKralovnou * p
+        : CENA.neznameZabkou + CENA.stikaZabkou * p;
     } else if (druh === 'komar' || druh === 'leknin') {
       // Leknín dá tah navíc jen tehdy, když mám čím táhnout JINOU žábou;
       // komár naopak pokračuje touž, takže platí vždycky.
@@ -268,6 +294,7 @@ export default {
       myTurn: naTahu,
       pole: Array.from({ length: POLI }, (_, i) => (s.odhaleno[i] ? s.pole[i] : null)),
       odhaleno: s.odhaleno,
+      voda: s.voda,      // rub kartičky – veřejný, takže jde poslat celý
       zaby: s.zaby,
       hraci: s.hraci,
       nucena: s.nucena,

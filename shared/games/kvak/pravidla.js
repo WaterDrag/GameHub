@@ -5,7 +5,7 @@
 //    • Rákos    – nic zvláštního
 //    • Komár    – tah navíc, ale TOUTɎ žábou, co na něj šlápla
 //    • Leknín   – tah navíc, ale JINOU žábou
-//    • Štika    – sežere žábu i královnu
+//    • Štika    – sežere žábu i královnu; leží jen ve špinavé vodě
 //    • Kláda    – vejdou se dvě vlastní žáby; ve dvou je nikdo nesebere
 //    • Sameček  – čtyři druhy, každý dá každé královně jednu žabku.
 //                 Vzniká POD královnou a příští tah se s ní musí hrát.
@@ -40,9 +40,13 @@ const jmeno = (h) => `Hráč ${h + 1}`;
 
 // ── Nová hra ─────────────────────────────────────────────────
 export function novaHra(hracu, rng) {
+  const { pole, voda } = novaDeska(rng, hracu);
   const s = {
     hracu,
-    pole: novaDeska(rng, hracu),
+    pole,
+    // Rub kartičky – vidí ho všichni. Ve špinavé vodě může být štika,
+    // v čisté nikdy.
+    voda,
     odhaleno: new Array(POLI).fill(false),
     zaby: {},
     hraci: Array.from({ length: hracu }, () => ({

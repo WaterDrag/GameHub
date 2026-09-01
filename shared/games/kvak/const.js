@@ -22,6 +22,14 @@ export const BEZ_POKROKU = 40;
 // Tím je zásoba každého hráče přesně 4 – žádné zvláštní počítadlo.
 export const SAMCI = ['samec1', 'samec2', 'samec3', 'samec4'];
 
+// Dva druhy vody. Je to RUB kartičky, takže to vidí každý už před
+// otočením: ve špinavé může číhat štika, v čisté nikdy.
+// Všech osm štik se rozdá do špinavé, takže je tam riziko ~31 %,
+// zatímco čistá voda je pro královnu úplně bezpečná.
+export const PODIL_SPINAVE = 0.4;
+export const CISTA = 'cista';
+export const SPINAVA = 'spinava';
+
 export const KARTY = {
   rakos: { nazev: 'Rákos', emoji: '🌿', popis: 'Obyčejné pole, nic se neděje.' },
   leknin: { nazev: 'Leknín', emoji: '🌸', popis: 'Tah navíc, ale JINOU žábou.' },
@@ -93,6 +101,8 @@ export function sousedi(r, c) {
 
 // Rozdá 64 kartiček tak, aby startovní pole byla bezpečná.
 // Kdyby na rohu ležela štika, stála by na ní žába hned od začátku.
+//  Vrací { pole, voda }. Štiky smějí ležet JEN ve špinavé vodě – to je
+//  celý smysl dvou rubů. Startovní pole jsou čistá a bezpečná.
 export function novaDeska(rng, hracu) {
   const balicek = [];
   for (const [druh, kolik] of Object.entries(SLOZENI)) {
@@ -104,17 +114,39 @@ export function novaDeska(rng, hracu) {
     for (const [r, c] of STARTY[h]) startovni.add(index(r, c));
   }
 
+  // Která pole jsou špinavá. Startovní nikdy.
+  const volna = [];
+  for (let i = 0; i < POLI; i++) if (!startovni.has(i)) volna.push(i);
+  const kolikSpinave = Math.round(POLI * PODIL_SPINAVE);
+  const spinava = new Set(rng.shuffle(volna).slice(0, kolikSpinave));
+
+  const voda = Array.from({ length: POLI }, (_, i) => (spinava.has(i) ? SPINAVA : CISTA));
+
   // Míchá se JEDNOU a pak se dělí – kdyby se startovní pole brala
   // z jedné kopie a zbytek z druhé, změnil by se poměr kartiček.
-  const bezpecne = rng.shuffle(balicek.filter(d => d === 'rakos'));
-  const ostatni = balicek.filter(d => d !== 'rakos');
-  const naStart = bezpecne.slice(0, startovni.size);
-  const zbytek = rng.shuffle([...bezpecne.slice(startovni.size), ...ostatni]);
+  const stiky = balicek.filter(d => d === 'stika');
+  const bezStik = rng.shuffle(balicek.filter(d => d !== 'stika'));
+  const cisteRakosy = bezStik.filter(d => d === 'rakos');
+  const naStart = cisteRakosy.slice(0, startovni.size);
+
+  // Zbylé kartičky kromě štik; štiky se pak dosadí jen do špinavých.
+  const naStartPocet = {};
+  for (const d of naStart) naStartPocet[d] = (naStartPocet[d] || 0) + 1;
+  const zbytek = [];
+  for (const d of bezStik) {
+    if (naStartPocet[d]) { naStartPocet[d]--; continue; }
+    zbytek.push(d);
+  }
+  const smichany = rng.shuffle(zbytek);
 
   const pole = new Array(POLI).fill(null);
-  let iS = 0, iZ = 0;
-  for (let i = 0; i < POLI; i++) {
-    pole[i] = startovni.has(i) ? naStart[iS++] : zbytek[iZ++];
-  }
-  return pole;
+  let iS = 0;
+  // Nejdřív štiky do náhodných špinavých polí.
+  for (const i of rng.shuffle([...spinava]).slice(0, stiky.length)) pole[i] = 'stika';
+  // Pak starty, pak všechno ostatní.
+  for (const i of startovni) pole[i] = naStart[iS++];
+  let iZ = 0;
+  for (let i = 0; i < POLI; i++) if (pole[i] === null) pole[i] = smichany[iZ++];
+
+  return { pole, voda };
 }

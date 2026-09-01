@@ -1912,16 +1912,35 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   font:inherit; color:inherit; padding:0; min-width:0; min-height:0;
   transition:transform .12s, box-shadow .12s, filter .12s;
 }
-.kv-pole.skryte{
+/* Rub kartičky. Dva druhy vody – ve špinavé může číhat štika, v čisté ne,
+   a vidí to každý už před otočením. Musí být na první pohled různé. */
+.kv-pole.skryte.cista{
   background-color:#1b6f93;
   background-image:
     repeating-linear-gradient(45deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 5px,transparent 5px,transparent 11px),
     linear-gradient(150deg,#2a9fc4,#155f80 62%,#0e4560);
 }
-.kv-pole.skryte::after{
-  content:'💧'; position:absolute; top:1px; left:3px;
-  font-size:.5rem; opacity:.4; pointer-events:none;
+.kv-pole.skryte.spinava{
+  background-color:#3c4a2a;
+  background-image:
+    repeating-linear-gradient(45deg,rgba(0,0,0,.16),rgba(0,0,0,.16) 4px,transparent 4px,transparent 9px),
+    radial-gradient(circle at 30% 25%,rgba(150,170,90,.28),transparent 60%),
+    linear-gradient(150deg,#55663a,#33401f 62%,#212a13);
 }
+.kv-pole.skryte::after{
+  position:absolute; top:1px; left:3px;
+  font-size:.5rem; opacity:.45; pointer-events:none;
+}
+.kv-pole.skryte.cista::after{content:'💧'}
+.kv-pole.skryte.spinava::after{content:'🌊'}
+
+.kv-rub{display:flex; flex-direction:column; gap:4px; margin-top:2px}
+.kv-rub-i{
+  width:18px; height:18px; border-radius:5px; flex-shrink:0;
+  border:1px solid rgba(255,255,255,.14);
+}
+.kv-rub-i.cista{background:linear-gradient(150deg,#2a9fc4,#155f80)}
+.kv-rub-i.spinava{background:linear-gradient(150deg,#55663a,#33401f)}
 .kv-rakos{background:linear-gradient(140deg,#2f7d32,#1b4d20)}
 .kv-leknin{background:linear-gradient(140deg,#c2185b,#7b1140)}
 .kv-komar{background:linear-gradient(140deg,#6a3fa0,#3d2464)}
