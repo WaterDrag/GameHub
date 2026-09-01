@@ -26,6 +26,7 @@ export const C = {
   INPUT:      'input',      // {seq, ...} – realtime hry
   ACTION:     'action',     // {...}      – tahové hry
   REMATCH:    'rematch',    // {}
+  VOTE_BOT:   'voteBot',    // {uid, ano} – hlasování o nahrazení botem
 };
 
 // server -> klient

@@ -380,11 +380,29 @@ function zapas(seed, levely, mody = {}) {
   zkus('po dvojici zůstávám na tahu', poTahu.naTahu === 0, `na tahu ${poTahu.naTahu}`);
   zkus('a řekne se proč', poTahu.hlaska?.mod === 'double', poTahu.hlaska?.text || 'nic');
 
-  // Různé hodnoty se součtem 6 – znovu se hází kvůli šestce, ne kvůli dvojici.
+  // Součet 6 bez dvojice už hod navíc nedává – u dvou kostek je šestka
+  // nejčastější součet a hráč by házel pořád dokola.
   const u = novaHra('mala', 2, 4, { double: true });
   u.poz[0][0] = 5;
   const uPo = tah(hod(u, 6, [2, 4]), 0, false);
-  zkus('součet 6 bez dvojice pořád dává hod navíc', uPo.naTahu === 0, `na tahu ${uPo.naTahu}`);
+  zkus('součet 6 bez dvojice tah ukončí', uPo.naTahu === 1, `na tahu ${uPo.naTahu}`);
+
+  // Nasazování: v klasice šestka, u Double trouble dvojice.
+  const nas = novaHra('mala', 2, 4, { double: true });
+  nas.kostky = [2, 4];
+  zkus('součet 6 figurku z domečku nevytáhne',
+    tahy(nas, 0, 6).length === 0, 'nic k nasazení');
+  nas.kostky = [3, 3];
+  zkus('dvojice figurku z domečku vytáhne',
+    tahy(nas, 0, 6).length === nas.figurek, `${tahy(nas, 0, 6).length} z ${nas.figurek}`);
+  nas.kostky = [1, 1];
+  zkus('a stačí i malá dvojice',
+    tahy(nas, 0, 2).length === nas.figurek, `dvě jedničky: ${tahy(nas, 0, 2).length}`);
+
+  // V klasice šestka plátí dál.
+  const klas = novaHra('mala', 2, 4, {});
+  zkus('bez Double trouble nasazuje pořád šestka',
+    tahy(klas, 0, 6).length === klas.figurek && tahy(klas, 0, 5).length === 0, 'beze změny');
 
   // Součet 7 bez dvojice – tah končí.
   const v = novaHra('mala', 2, 4, { double: true });
@@ -504,12 +522,35 @@ function zapas(seed, levely, mody = {}) {
   zkus('lovec nasadí figurku na start', po.poz[0].includes(0), JSON.stringify(po.poz[0]));
   zkus('lovec o tom řekne', po.hlaska?.mod === 'lovec', po.hlaska?.text || 'nic');
 
+  // Obsazený start: figurka na něm zůstává a NOVÁ se nasadí o pole dál.
   const u = novaHra('mala', 2, 4, { lovec: true });
   u.poz[0][0] = 3; u.poz[0][1] = 0;
   u.poz[1][0] = 25;
   u.hozeno = true; u.kostka = 2;
+  const naDrazePred = u.poz[0].filter(k => k >= 0).length;
   const po2 = tah(u, 0, false);
-  zkus('lovec posune figurku ze startu', po2.poz[0][1] === 1, `ze startu na ${po2.poz[0][1]}`);
+  zkus('figurka na startu zůstává', po2.poz[0][1] === 0, `start: ${po2.poz[0][1]}`);
+  zkus('nová figurka jde o pole dál', po2.poz[0].includes(1), JSON.stringify(po2.poz[0]));
+  zkus('a je jich na dráze o jednu víc',
+    po2.poz[0].filter(k => k >= 0).length === naDrazePred + 1,
+    `${naDrazePred} → ${po2.poz[0].filter(k => k >= 0).length}`);
+
+  // Obsazený start i jednička – nová hledá dál.
+  const uu = novaHra('mala', 2, 4, { lovec: true });
+  uu.poz[0][0] = 3; uu.poz[0][1] = 0; uu.poz[0][2] = 1;
+  uu.poz[1][0] = 25;
+  uu.hozeno = true; uu.kostka = 2;
+  const po2b = tah(uu, 0, false);
+  zkus('přes obsazená pole hledá dál', po2b.poz[0].includes(2), JSON.stringify(po2b.poz[0]));
+
+  // Není koho nasadit – odměna prostě propadne.
+  const up = novaHra('mala', 2, 4, { lovec: true });
+  up.poz[0] = [3, 0, 1, 2];
+  up.poz[1][0] = 25;
+  up.hozeno = true; up.kostka = 2;
+  const po2c = tah(up, 0, false);
+  zkus('bez figurky v domečku se nic nestane',
+    po2c.poz[0].filter(k => k >= 0).length === 4, JSON.stringify(po2c.poz[0]));
 
   const v = novaHra('mala', 2, 4, {});
   v.poz[0][0] = 3; v.poz[1][0] = 25;

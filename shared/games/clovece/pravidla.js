@@ -95,6 +95,14 @@ const mamNaKroku = (s, hrac, krok) => s.poz[hrac].some(k => k === krok);
 export const jeDvojice = (s) => !!(s.mody?.double && s.kostky
   && s.kostky.length === 2 && s.kostky[0] === s.kostky[1]);
 
+// Co vytáhne figurku z domečku a dá hod navíc. V klasice šestka.
+// U Double trouble platí SOUČET dvou kostek, takže šestka ztrácí smysl:
+// je to nejčastější součet ze všech (6/36) a hráči by tak nasazovali
+// a házeli znovu skoro pořád. Bránu proto otevírá dvojice – ta padá
+// přesně tak často jako šestka na jedné kostce (6/36 = 1/6).
+export const otevira = (s, kostka = s.kostka) =>
+  (s.mody?.double ? jeDvojice(s) : kostka === 6);
+
 // Políčka, přes která figurka po cestě přejde (bez výchozího i cílového).
 // Jen dráha – v cíli ani v domečku není koho přeskakovat.
 export function cesta(s, hrac, z, na) {
@@ -128,9 +136,10 @@ export function tahy(s, hrac = s.naTahu, kostka = s.kostka) {
   for (let f = 0; f < s.figurek; f++) {
     const k = s.poz[hrac][f];
 
-    // Z domečku ven – jen za šestku a jen když na startu nestojím sám.
+    // Z domečku ven – jen za šestku (u Double trouble za dvojici)
+    // a jen když na startu nestojím sám.
     if (vDomecku(k)) {
-      if (kostka !== 6) continue;
+      if (!otevira(s, kostka)) continue;
       if (mamNaKroku(s, hrac, 0)) continue;
       out.push({ fig: f, z: k, na: 0, vyhodi: ciziNa(0), couv: false });
       continue;
@@ -275,8 +284,8 @@ export function tah(s, fig, couv = false, nahoda = 1) {
   n.posledni = { hrac: n.naTahu, fig, z: t.z, na: t.na, vyhodil: t.vyhodi || null, couv: !!t.couv };
   n.tahu++;
 
-  // Lovec odměn: za vyhození figurka navíc na start, nebo posun toho,
-  // kdo na startu stojí.
+  // Lovec odměn: za vyhození přibývá nová figurka na start (nebo o pole
+  // dál, když je start obsazený vlastní figurkou).
   if (t.vyhodi && n.mody.lovec) odmena(n, n.naTahu);
 
   if (n.poz[n.naTahu].every(k => vCili(m, k))) {
@@ -286,10 +295,10 @@ export function tah(s, fig, couv = false, nahoda = 1) {
     return n;
   }
 
-  // Šestka = házíš znovu. U Double trouble k tomu ještě dvě stejné –
-  // na těch se tah nezastavuje.
+  // Šestka = házíš znovu. U Double trouble ji nahrazuje dvojice –
+  // součet 6 je tam nejčastější hod a dával by hod navíc pořád.
   const dvojice = jeDvojice(n);
-  const znovu = n.kostka === 6 || dvojice;
+  const znovu = otevira(n);
   if (dvojice && !n.hlaska) rekni(n, 'double', `Dvě ${n.kostky[0]}ky – házíš znovu.`);
   n.hozeno = false;
   n.kostka = null;
@@ -340,24 +349,27 @@ export function snipe(s, cilHrac, cilFig) {
 }
 
 // ── Lovec odměn ──────────────────────────────────────────────
+//  Za vyhození přibývá NOVÁ figurka z domečku. Normálně na start;
+//  když tam už vlastní figurka stojí, nová se nasadí o pole dál
+//  (a tak dál, dokud se nenajde volno). Nasazení je plné – kdo tam
+//  stojí z cizích, jde domů, stejně jako při běžném výjezdu ze startu.
 function odmena(n, hrac) {
   const m = mapaHry(n);
   const O = okruh(m);
-  const naStartu = n.poz[hrac].indexOf(0);
 
-  if (naStartu === -1) {
-    const vDomecku_ = n.poz[hrac].indexOf(V_DOMECKU);
-    if (vDomecku_ === -1) return;
-    n.poz[hrac][vDomecku_] = 0;
-    rekni(n, 'lovec', 'Lovec odměn: nasazuješ figurku na start.');
+  const zDomecku = n.poz[hrac].indexOf(V_DOMECKU);
+  if (zDomecku === -1) return;      // není koho nasadit
+
+  const draha = obsazeniDrahy(n);
+  for (let krok = 0; krok < O; krok++) {
+    if (n.poz[hrac].some(k => k === krok)) continue;   // vlastní figurka překáží
+    const cizi = draha.get(naOkruhu(m, n.ramena[hrac], krok));
+    if (cizi && cizi.hrac !== hrac) n.poz[cizi.hrac][cizi.fig] = V_DOMECKU;
+    n.poz[hrac][zDomecku] = krok;
+    rekni(n, 'lovec', krok === 0
+      ? 'Lovec odměn: nasazuješ figurku na start.'
+      : `Lovec odměn: start byl obsazený, nová figurka jde o ${krok} dál.`);
     return;
-  }
-
-  // Na startu už někdo stojí – posuneme ho o pole dál, když je volno.
-  const dal = 1;
-  if (dal < O && !n.poz[hrac].some(k => k === dal)) {
-    n.poz[hrac][naStartu] = dal;
-    rekni(n, 'lovec', 'Lovec odměn: figurka na startu se posunula o pole.');
   }
 }
 

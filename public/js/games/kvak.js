@@ -159,15 +159,19 @@ export default {
         const karta = el.querySelector('.kv-karta');
         karta.textContent = druh ? KARTY[druh].emoji : '';
         el.className = 'kv-pole' + (druh ? ` odhalene kv-${druh}` : ' skryte')
-          + (v.zakazano[i] ? ' zakazane' : '');
+          + (v.zakazano[i] ? ' zakazane' : '')
+          + (zaby.length ? ' ma-zabu' : '');
         el.title = druh ? `${KARTY[druh].nazev} – ${KARTY[druh].popis}` : 'Neotočená kartička';
 
         const box = el.querySelector('.kv-zaby');
         box.innerHTML = '';
         for (const z of zaby) {
+          // Žáby všech hráčů jsou táž emoji, takže barva musí být POD ní
+          // jako podstavec. Samá zář kolem obrysu se na desce ztratila.
           const t = document.createElement('span');
           t.className = 'kv-zaba' + (z.kralovna ? ' kralovna' : '');
           t.style.setProperty('--c', BARVY[z.hrac]);
+          t.dataset.hrac = z.hrac + 1;
           t.textContent = z.kralovna ? '👑' : '🐸';
           box.append(t);
         }

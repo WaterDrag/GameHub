@@ -13,6 +13,10 @@ export const TIMING = {
   // Odpojený hráč nemůže hrát vůbec, takže ho bot bere hned. Tohle je
   // něco jiného: hráč je připojený, ale dvě minuty nic nedělá.
   IDLE_TAKEOVER_MS: 120000,
+  // Po dvou minutách se nečinný hráč NENAHRAZUJE rovnou – nejdřív se
+  // ostatních zeptáme. Kdo neodpoví do téhle lhůty, hlasování padá
+  // a čeká se další dvě minuty.
+  BOT_VOTE_MS: 30000,
   REJOIN_GRACE_MS: 180000,  // 3 min na návrat do rozehrané hry
   LOBBY_DROP_MS: 20000,     // odpojení v lobby = vyhození po 20 s
   EMPTY_ROOM_MS: 60000,     // místnost bez živého člověka

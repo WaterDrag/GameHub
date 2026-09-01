@@ -193,6 +193,11 @@ export class Room {
   begin() {
     this.status = STATUS.PLAYING;
     this.tick = 0;
+    // Čekání v čekárně není nečinnost. `lastActAt` se nastavuje při
+    // připojení, takže po dlouhém lobby byl hráč „unečinnělý“ už v první
+    // vteřině hry a bot ho vzal, aniž by cokoliv udělal.
+    for (const p of this.list) p.lastActAt = Date.now();
+    this.hlasovani = null;
     this.rng = makeRng(this.seed);
     this.state = this.game.createState({
       players: this.list, rng: this.rng, room: this, options: this.options,
@@ -289,9 +294,65 @@ export class Room {
 
       if (this.status === STATUS.PLAYING && !p.botControlled
           && now - p.lastActAt > TIMING.IDLE_TAKEOVER_MS) {
-        this.takeOver(p, 'nečinnost');
+        this.zacniHlasovani(p, now);
       }
     }
+    this.dohledniHlasovani(now);
+  }
+
+  // ── Hlasování o nahrazení botem ──────────────────────
+  //  Nečinný hráč se už nenahrazuje potichu. Ostatní dostanou otázku
+  //  a bot ho vezme jen tehdy, když se všichni shodnou. Když ne, čeká se
+  //  další dvě minuty – třeba jen odběhl.
+  volici(krome) {
+    return this.list.filter(x => !x.bot && !x.botControlled && x.connected && x.uid !== krome);
+  }
+
+  zacniHlasovani(p, now) {
+    if (this.hlasovani) return;
+    const volici = this.volici(p.uid);
+
+    // Není se koho ptát – hráč je u stolu sám mezi boty a hra by na něm visela.
+    if (!volici.length) return this.takeOver(p, 'nečinnost');
+
+    this.hlasovani = { uid: p.uid, konci: now + TIMING.BOT_VOTE_MS, pro: new Set() };
+    this.broadcast(S.EVENT, {
+      kind: 'botVote', uid: p.uid, name: p.name,
+      hlasu: volici.length, sekund: Math.round(TIMING.BOT_VOTE_MS / 1000),
+      necinny: Math.round(TIMING.IDLE_TAKEOVER_MS / 1000),
+    });
+  }
+
+  hlasuj(p, uid, ano) {
+    const h = this.hlasovani;
+    if (!h || h.uid !== uid || p.uid === uid || p.bot) return;
+    if (!ano) return this.zrusHlasovani('proti');
+    h.pro.add(p.uid);
+    const volici = this.volici(h.uid);
+    if (volici.length && volici.every(x => h.pro.has(x.uid))) {
+      const cil = this.players.get(h.uid);
+      this.hlasovani = null;
+      if (cil) this.takeOver(cil, 'nečinnost – odhlasováno');
+    }
+  }
+
+  zrusHlasovani(duvod) {
+    const h = this.hlasovani;
+    if (!h) return;
+    this.hlasovani = null;
+    // Odklad: další dotaz až za další dvě minuty.
+    const cil = this.players.get(h.uid);
+    if (cil) cil.lastActAt = Date.now();
+    this.broadcast(S.EVENT, { kind: 'botVoteEnd', uid: h.uid, duvod });
+  }
+
+  dohledniHlasovani(now) {
+    const h = this.hlasovani;
+    if (!h) return;
+    const cil = this.players.get(h.uid);
+    if (!cil || cil.botControlled) { this.hlasovani = null; return; }
+    if (now - cil.lastActAt < TIMING.IDLE_TAKEOVER_MS) return this.zrusHlasovani('ozval se');
+    if (now >= h.konci) this.zrusHlasovani('nikdo neodpověděl');
   }
 
   takeOver(p, duvod) {

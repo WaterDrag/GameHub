@@ -278,6 +278,9 @@ async function handle(conn, msg) {
       if (err) send(ws, S.ERROR, { msg: err });
       return;
     }
+
+    case C.VOTE_BOT:
+      return room.hlasuj(me, String(msg.uid || ''), !!msg.ano);
   }
 }
 

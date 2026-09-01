@@ -158,9 +158,59 @@ net.on('event', (m) => {
   } else if (m.kind === 'botReturn') {
     const ja = m.uid === state.me?.uid;
     toast(ja ? 'Máš postavu zpátky.' : `${m.name} se vrátil ke hře.`, 'success');
+  } else if (m.kind === 'botVote') {
+    hlasovaniOBota(m);
+  } else if (m.kind === 'botVoteEnd') {
+    zavriHlasovani();
+    if (m.uid !== state.me?.uid) {
+      toast(m.duvod === 'ozval se' ? 'Už se ozval, hraje dál.'
+        : m.duvod === 'proti' ? 'Nechaláváme mu ještě čas.'
+          : 'Hlasování vypršelo, čekáme dál.', 'info');
+    }
   }
   state.view?.event?.(m);
 });
+
+// ── Hlasování o nahrazení nečinného hráče botem ────────────
+//  Dřív bot bral postavu potichu po dvou minutách. Teď se ostatních
+//  zeptáme a bot ho vezme jen při shodě všech.
+let hlasT = null;
+
+function zavriHlasovani() {
+  clearTimeout(hlasT); hlasT = null;
+  document.getElementById('botVote')?.remove();
+}
+
+function hlasovaniOBota(m) {
+  zavriHlasovani();
+  const ja = m.uid === state.me?.uid;
+  const box = document.createElement('div');
+  box.id = 'botVote';
+  box.className = 'bot-vote' + (ja ? ' ja' : '');
+  box.innerHTML = ja
+    ? `<div class="bv-nadpis">⏰ Jsi tam ještě?</div>
+       <div class="bv-text">${m.necinny} s bez akce. Ostatní hlasují, jestli tě má nahradit bot –
+       stačí cokoliv udělat a hlasování padne.</div>`
+    : `<div class="bv-nadpis">⏰ ${m.name} už ${m.necinny} s nic nedělá</div>
+       <div class="bv-text">Má ho nahradit bot? Musí se shodnout všichni (${m.hlasu}).
+       Když ne, čeká se další dvě minuty.</div>
+       <div class="bv-tlacitka">
+         <button type="button" class="bv-ne">Ještě počkat</button>
+         <button type="button" class="bv-ano">Nahradit botem</button>
+       </div>`;
+  document.body.appendChild(box);
+  if (!ja) {
+    box.querySelector('.bv-ano').onclick = () => {
+      net.send('voteBot', { uid: m.uid, ano: true });
+      box.querySelector('.bv-tlacitka').innerHTML = '<span class="bv-cekam">Čeká se na ostatní…</span>';
+    };
+    box.querySelector('.bv-ne').onclick = () => {
+      net.send('voteBot', { uid: m.uid, ano: false });
+      zavriHlasovani();
+    };
+  }
+  hlasT = setTimeout(zavriHlasovani, (m.sekund || 30) * 1000 + 1500);
+}
 
 net.on('over', (m) => {
   state.players = m.players;

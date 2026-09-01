@@ -334,7 +334,7 @@ export default {
       this.zapis(state, `${kdo} hodil ${kostka} – nemá tah, zbývá ${p} ${p === 1 ? 'pokus' : 'pokusy'}.`);
     }
 
-    if (n.hlaska) this.zapis(state, n.hlaska.text);
+    if (n.hlaska) { this.zapis(state, n.hlaska.text); ctx.emit('mod', { ...n.hlaska }); }
     ctx.emit('kostka', { seat: predtim, hodnota: kostka, kostky: dve ? [a, b] : null });
     this.prepocti(state, ctx);
   },
@@ -351,7 +351,7 @@ export default {
 
     // Hlášku módu píšeme vždycky – hráč musí vědět, proč se stalo,
     // co se stalo.
-    if (n.hlaska) this.zapis(state, `${kdo}: ${n.hlaska.text}`);
+    if (n.hlaska) { this.zapis(state, `${kdo}: ${n.hlaska.text}`); ctx.emit('mod', { ...n.hlaska }); }
     if (n.hlaska?.mod === 'nervy') { ctx.emit('nervy', { seat: s.naTahu }); this.prepocti(state, ctx); return; }
 
     if (t?.vyhodi) {
@@ -467,6 +467,8 @@ export default {
       kostky: s.kostky,
       mody: s.mody,
       hlaska: s.hlaska,
+      tahu: s.tahu,
+      hodu: s.hodu,
       sniper: s.sniper,
       sniperCile: s.sniper ? sniperCile(s) : [],
       muzeObetovat: myTurn && lzeObetovat(s),

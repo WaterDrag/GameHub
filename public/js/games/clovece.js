@@ -11,6 +11,7 @@
 import {
   MAPA_PODLE, geometrie, okruh, naOkruhu, barvaRamene, CIL,
 } from '/shared/games/clovece/const.js';
+import { MODY } from '/shared/games/clovece/mody.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const mk = (tag, attrs = {}) => {
@@ -63,7 +64,8 @@ export default {
         </div>
         <div class="cl-figurky" id="clFigurky"></div>
       </div>
-      <div class="cl-let" id="clLet"></div>`;
+      <div class="cl-let" id="clLet"></div>
+      <div class="cl-vyzva hidden" id="clVyzva"></div>`;
 
     this.root.querySelector('#clHod').onclick = () => this.hod();
     this.root.querySelector('#clObet').onclick = () => this.zacniObet();
@@ -260,6 +262,7 @@ export default {
       this.view = view;
       this.postavDesku(view);
     }
+    this.uklidKostky(view);
     this.view = view;
     this.render(view);
   },
@@ -268,6 +271,9 @@ export default {
   // dvojici (kind, data). Žádná jiná hra události nepoužívá, takže na to
   // tady nebylo podle čeho přijít – animace se prostě tiše nespouštěla.
   event(m) {
+    // Hláška módu chodí vlastní událostí, ne stavem. Ve stavu žije jen
+    // do další akce, takže při rychlé hře s boty ji nikdo nestihl přečíst.
+    if (m?.kind === 'mod') return this.vyzva(m.mod, m.text);
     if (m?.kind !== 'kostka') return;
     // Kostka na stole ukazuje POSLEDNÍ hod, ne `view.kostka`. Ta je jen
     // po dobu výběru figurky – když hod nic neumožní, server ji hned
@@ -275,6 +281,25 @@ export default {
     this.posledniHod = m.hodnota;
     this.posledniPar = m.kostky || null;
     this.hodKostkou(m.hodnota, m.seat, m.kostky);
+  },
+
+  // ── Velká hláška módu ───────────────────────────
+  //  Pilulka na kraji panelu se přebíhala. Když nějaké pravidlo hráči
+  //  něco vnutí nebo vezme, musí to být vidět – tohle sedí uprostřed desky
+  //  a nese název módu, ať je jasné, KTERÉ pravidlo zasáhlo.
+  vyzva(mod, text) {
+    const el = this.root?.querySelector('#clVyzva');
+    if (!el || !text) return;
+    const info = MODY.find(m => m.id === mod);
+    el.innerHTML = `<span class="cl-vyzva-i">${info?.emoji || '❗'}</span>
+      <span class="cl-vyzva-t"><b>${info?.nazev || 'Pravidlo'}</b><span>${text}</span></span>`;
+    el.className = `cl-vyzva mod-${mod || 'jine'}`;
+    // Restart animace: bez tohohle by druhá hláška v řadě nepohnula okem.
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+    clearTimeout(this._vyzvaT);
+    this._vyzvaT = setTimeout(() => el.classList.add('hidden'), 3600);
   },
 
   // ── Letící kostka ──────────────────────────────────────────
@@ -390,13 +415,31 @@ export default {
     for (const k of this._kostky || []) this.puntiky(k.mrizka, k.val);
     this.kresliKostku(hodnota, kostky);
 
-    // Chvíli podržet, ať je hodnota čitelná, a zmizet.
-    this._mizi = setTimeout(() => {
-      const schovej = () => { vrstva.style.display = 'none'; };
-      const f = vrstva.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-      f.onfinish = schovej;
-      this._schovej = setTimeout(schovej, 400);   // zase pojistka
-    }, 380);
+    // Kostky zůstanou LEŽET, dokud hráč neodehraje. Dřív mizely
+    // 380 ms po dopadu, takže celý hod trval asi 1,2 s – kdo se podíval
+    // na desku, už nenašel nic. Uklidí je až `uklidKostky()` z `update()`.
+    this._cekaOd = this.view?.tahu ?? 0;
+    this._cekaHodu = this.view?.hodu ?? 0;
+    // Pojistka pro případ, že už žádný stav nedorazí (konec hry apod.).
+    this._mizi = setTimeout(() => this.schovejKostky(), 6000);
+  },
+
+  // Zmizí až po odehrání – pozná se podle počitadla tahů nebo hodů.
+  uklidKostky(v) {
+    if (this._leti || !this._cekaOd && this._cekaOd !== 0) return;
+    if (v.tahu === this._cekaOd && v.hodu === this._cekaHodu) return;
+    this.schovejKostky();
+  },
+
+  schovejKostky() {
+    this._cekaOd = null;
+    if (this._mizi) { clearTimeout(this._mizi); this._mizi = null; }
+    const vrstva = this.root?.querySelector('#clLet');
+    if (!vrstva || vrstva.style.display === 'none') return;
+    const schovej = () => { vrstva.style.display = 'none'; };
+    const f = vrstva.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
+    f.onfinish = schovej;
+    this._schovej = setTimeout(schovej, 420);   // zase pojistka
   },
 
   zrusLet() {
