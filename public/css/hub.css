@@ -2099,3 +2099,138 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
 .bv-tlacitka button:hover{transform:translateY(-1px)}
 .bv-cekam{flex:1; text-align:center; font-size:.74rem; color:var(--tx3); padding:9px 0}
 @media (prefers-reduced-motion:reduce){ .bot-vote{animation:none} }
+
+
+/* ── Lodě ───────────────────────────────────────
+   Jedno společné moře uprostřed, kapitáni vlevo, střely vpravo. */
+.lo{
+  position:absolute; inset:0; z-index:12; display:flex; gap:10px; padding:10px;
+  pointer-events:auto; overflow:hidden;
+}
+.lo-vlevo,.lo-vpravo{
+  width:210px; flex-shrink:0; display:flex; flex-direction:column; gap:7px;
+  overflow-y:auto; min-height:0;
+}
+/* Nad pravým sloupcem sedí hubové tlačítko „Opustit hru“. */
+.lo-vpravo{width:232px; padding-top:48px}
+.lo-nadpis{
+  font-size:.62rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--tx2); border-bottom:1px solid var(--brd); padding-bottom:3px; margin-top:2px;
+}
+.lo-more{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  min-width:0; position:relative;
+}
+.lo-deska{
+  display:grid;
+  grid-template-columns:auto repeat(var(--n),1fr);
+  gap:2px; aspect-ratio:1; width:min(100%,calc(100vh - 120px)); max-width:660px;
+  padding:8px; border-radius:14px;
+  background:radial-gradient(ellipse at 50% 0%,#123a55,#0a2537 65%,#061726);
+  border:1px solid rgba(90,160,200,.22);
+}
+.lo-popisek{
+  display:flex; align-items:center; justify-content:center;
+  font-size:.56rem; color:var(--tx3); font-weight:700;
+}
+
+.lo-pole{
+  position:relative; border-radius:3px; cursor:default; padding:0;
+  border:1px solid rgba(255,255,255,.05); font:inherit; min-width:0; min-height:0;
+  background-color:#14496b;
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.04),rgba(255,255,255,.04) 4px,transparent 4px,transparent 9px);
+  transition:transform .1s, box-shadow .1s;
+}
+.lo-pole.lze{cursor:crosshair}
+.lo-pole.moje{box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+.lo-pole.minuto{background:#0d2233; background-image:none}
+.lo-pole.minuto::after{
+  content:''; position:absolute; left:50%; top:50%; width:22%; height:22%;
+  transform:translate(-50%,-50%); border-radius:50%; background:rgba(255,255,255,.25);
+}
+.lo-pole.zasah{background:#7a2318; background-image:none}
+.lo-pole.nahled{box-shadow:0 0 0 2px var(--warn), inset 0 0 12px rgba(255,200,80,.25)}
+.lo-pole.spatne{box-shadow:0 0 0 2px var(--bad)}
+.lo-pole.lze:hover{transform:scale(1.06)}
+
+/* Kdo v tom poli schytal – čtvrtky podle počtu zasažených. */
+.lo-kdo{position:absolute; inset:2px; display:flex; flex-wrap:wrap; border-radius:2px; overflow:hidden}
+.lo-kdo i{flex:1 1 50%; min-width:50%; min-height:50%}
+.lo-kdo i:only-child{min-width:100%; min-height:100%}
+
+/* Hráči */
+.lo-hraci{display:flex; flex-direction:column; gap:5px}
+.lo-hrac{
+  --c:#888; display:grid; grid-template-columns:auto 1fr auto; gap:3px 7px; align-items:center;
+  padding:5px 8px; border-radius:9px; background:var(--bg2); border:1px solid var(--brd); opacity:.66;
+}
+.lo-hrac.on{opacity:1; border-color:var(--c); box-shadow:0 0 12px color-mix(in srgb,var(--c) 30%,transparent)}
+.lo-hrac.ja .lo-jmeno{text-decoration:underline; text-underline-offset:3px}
+.lo-hrac.potopen{opacity:.34; filter:grayscale(1)}
+.lo-tecka{width:9px; height:9px; border-radius:50%; background:var(--c)}
+.lo-jmeno{font-size:.74rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lo-skore{font-family:var(--font-display); font-size:.9rem; color:var(--c)}
+.lo-drobne{grid-column:1/-1; font-size:.62rem; color:var(--tx3)}
+
+.lo-log{
+  flex:1; min-height:70px; overflow-y:auto; font-size:.68rem; line-height:1.5;
+  color:var(--tx3); background:var(--bg2); border:1px solid var(--brd);
+  border-radius:9px; padding:6px 8px;
+}
+.lo-log div{padding:1px 0; border-bottom:1px solid rgba(255,255,255,.04)}
+
+/* Pravý panel */
+.lo-stav{
+  font-size:.8rem; font-weight:600; color:var(--tx2); text-align:center;
+  padding:6px 8px; border-radius:9px; background:var(--bg2); border:1px solid var(--brd);
+}
+.lo-stav.muj{color:var(--acc2); border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.lo-pokyn{font-size:.68rem; color:var(--tx3); text-align:center; line-height:1.45; min-height:1em}
+
+.lo-btn{
+  padding:8px 10px; border-radius:9px; cursor:pointer; width:100%;
+  background:var(--surface); border:1px solid var(--brd); color:var(--tx);
+  font-family:var(--font-display); font-size:.72rem; letter-spacing:.05em;
+}
+.lo-btn:hover:not(:disabled){transform:translateY(-1px)}
+.lo-btn:disabled{opacity:.4; cursor:not-allowed}
+.lo-btn.hlavni{background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#0b0b12; border:none}
+
+.lo-lodicky{display:flex; flex-direction:column; gap:4px}
+.lo-lodicka{
+  display:flex; justify-content:space-between; align-items:center; gap:6px;
+  padding:4px 8px; border-radius:8px; background:var(--bg2);
+  border:1px solid var(--brd); font-size:.7rem; opacity:.55;
+}
+.lo-lodicka.nadrade{opacity:1; border-color:var(--acc2); box-shadow:0 0 0 1px var(--acc2) inset}
+.lo-lodicka.hotova{opacity:.3; text-decoration:line-through}
+.lo-lodicka span{letter-spacing:-2px; color:var(--tx3)}
+
+.lo-strely{display:flex; flex-direction:column; gap:4px}
+.lo-strela{
+  display:flex; align-items:center; gap:7px; width:100%; text-align:left;
+  padding:6px 8px; border-radius:9px; background:var(--bg2);
+  border:1px solid var(--brd); color:var(--tx); font:inherit; cursor:pointer;
+}
+.lo-strela.vybrana{border-color:var(--acc2); box-shadow:0 0 0 1px var(--acc2) inset}
+.lo-strela:disabled{opacity:.35; cursor:not-allowed}
+.lo-s-e{font-size:1.05rem; line-height:1}
+.lo-s-t{flex:1; display:flex; flex-direction:column; min-width:0}
+.lo-s-t b{font-size:.72rem}
+.lo-s-t small{font-size:.6rem; color:var(--tx3); line-height:1.25}
+.lo-s-c{font-family:var(--font-display); font-size:.75rem; color:var(--warn)}
+
+.lo-hlaska{
+  position:absolute; left:50%; bottom:6px; transform:translateX(-50%);
+  font-size:.74rem; color:var(--tx2); background:color-mix(in srgb,var(--bg) 82%,transparent);
+  padding:4px 12px; border-radius:99px; border:1px solid var(--brd); white-space:nowrap;
+}
+
+@media (max-width:1000px){
+  .lo{flex-direction:column; overflow-y:auto}
+  .lo-vlevo,.lo-vpravo{width:100%; flex-direction:row; flex-wrap:wrap; overflow:visible}
+  .lo-vpravo{padding-top:0}
+  .lo-deska{width:min(100%,94vw)}
+  .lo-strely,.lo-lodicky{flex-direction:row; flex-wrap:wrap}
+  .lo-btn{width:auto; flex:1}
+}

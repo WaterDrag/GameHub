@@ -54,6 +54,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **UNO No Mercy** – 136 karet, oficiální pravidla, tajné ruce | ✅ |
 | **Osadníci z Katanu** – celá pravidla, tajné ruce, obchod mezi hráči | ✅ |
 | **Kvak!** – rybník z 64 skrytých kartiček, 2 až 4 hráči | ✅ |
+| **Lodě** – jedno společné moře pro 2 až 4 kapitány | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
 
 ## Netcode arény
@@ -851,6 +852,63 @@ Rozdíl mezi **normal a hard** je ve dvou věcech: tvrdý bot čte barvu vody
 (viz výš) a nenechává žabky stát pod úderem. Bez toho byly úrovně
 k nerozeznání (0,3 σ).
 
+
+## Lodě
+
+Není to klasické „každý má svoje moře“. Všichni rozmístí lodě do **též
+mřížky**, smějí se překrývat, a kdo trefí pole, ubere všem, kdo na něm mají
+loď – včetně sebe. Každý má lodě 4, 3, 3 a 2 (12 políček).
+
+### Proč to nemůže běžet v prohlížeči
+
+V předloze ležel celý stav ve Firestore, takže **si kdokoliv mohl přečíst,
+kde mají ostatní lodě** – a tím hra končí. `view()` posílá jen moje lodě
+a to, co už někdo prostřílel. Ověřeno testem: v celém výhledu se nečte
+ani jedno cizí políčko.
+
+### Čtyři změny proti předloze, všechny z měření
+
+**1. Deska roste s počtem hráčů.** Při pevných 9×9 měli čtyři hráči
+obsazeno **59 %** polí – slepá rána trefovala častěji, než míjela, a hledání
+ztrácelo smysl. Teď 9×9 pro dva, 11×11 pro tři a 12×12 pro čtyři, což drží
+obsazenost kolem 30 %.
+
+**2. Nejvýš tři rány za tah.** Zásah dává ránu navíc, ale na tak obsazené
+desce by první hráč řetězil rány přes půl moře.
+
+**3. Na vlastní loď střílet JDE.** Zkusil jsem to zakázat a mělo to dvě vady.
+Hra se **zablokovala** – zbylo poslední pole, na kterém měli loď všichni čtyři,
+nikdo na ně nesměl a tah se přehazoval donekonečna (7 partijí z 20). A hlavně
+by to **prozrazovalo informaci**: kdyby šlo střílet na moje pole, znamenalo by
+to, že tam má loď i někdo další.
+
+**4. Vyhrává, kdo potopil nejvíc, ne kdo přežil.** Tohle je největší zásah do
+konceptu. Na společné desce si nemůžeš vybrat, koho poškodíš, a vlastní
+přežití neovlivníš skoro vůbec – změřeno na 300 partijích:
+
+| pravidlo výhry | nejlepší střelec vyhrál | korelace zásahů a výhry |
+|---|---|---|
+| poslední přeživší (předloha) | 37 % (náhoda 25 %) | r = 0,25 |
+| nejvíc potopených | – | r = 0,79 |
+
+Přežití pořád rozhoduje o tom, jak dlouho můžeš střílet, a je první rozstřel
+při shodě.
+
+### Boti
+
+Dva režimy jako u skutečných lodí: **lov** (nikde nedokončený zásah) a
+**dorážka** (vedle zásahu skoro jistě pokračuje loď). Rozdíl proti klasice:
+zásah může patřit několika hráčům naráz, takže dorážka je tu ještě cennější.
+
+| úroveň | co umí navíc |
+|---|---|
+| easy | nic – nedoráží ani nehlídá šachovnici |
+| normal | dorážka + šachovnice |
+| hard | **mapa hustoty** – kde ještě může loď vůbec ležet |
+
+hard vs easy 91,7 %, normal vs easy 94,8 %. **hard vs normal jen 55 %** –
+mapa hustoty přidá 8 % zásahů (11,9 vs 11,0 na partii), což na výhru stačí
+jen těsně. Když dorážku uměly všechny úrovně, byly k nerozeznání (0,2 σ).
 
 ## Piškvorky
 
