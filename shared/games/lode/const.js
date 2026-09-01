@@ -27,11 +27,19 @@ export const BARVY = ['#7eb8c9', '#c9a87e', '#9ec97e', '#c97e9e'];
 export const PISMENA = 'ABCDEFGHIJKLMNOP';
 
 // Speciální střely. Cena je v bodech, body se získávají za zásahy.
+//
+// Body jsou ČISTÁ MĚNA – utrácení nesnižuje skóre (to je počet potopených
+// políček), takže se speciál vyplatí vždycky, když na něj máš.
+//
+// Ceny musí sedět na POKRYTÍ, jinak je jedna střela prostě lepší. Původně
+// bomba 9 polí za 3 (3,0 na bod) a řádek 9 za 5 (1,8) – řádek neměl smysl
+// nikdy. Teď bomba 9 za 4 (2,25) a linie 12 za 5 (2,4): linie odkryje víc
+// polí, ale rozesetých, takže se hůř doráží začatá loď.
 export const STRELY = {
   normal: { cena: 0, nazev: 'Střela', emoji: '🎯', popis: 'Jedno pole.' },
   bomba: { cena: 4, nazev: 'Bomba 3×3', emoji: '💥', popis: 'Devět polí kolem cíle.' },
-  radek: { cena: 7, nazev: 'Řádek', emoji: '➡', popis: 'Celý řádek.' },
-  sloupec: { cena: 7, nazev: 'Sloupec', emoji: '⬇', popis: 'Celý sloupec.' },
+  radek: { cena: 5, nazev: 'Řádek', emoji: '➡', popis: 'Celý řádek.' },
+  sloupec: { cena: 5, nazev: 'Sloupec', emoji: '⬇', popis: 'Celý sloupec.' },
 };
 
 // Kolik ran po sobě smí jeden hráč vypálit. Zásah dává ránu navíc,

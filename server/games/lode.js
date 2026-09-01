@@ -175,8 +175,11 @@ export default {
     }
     }
 
+    // Mapa hustoty se počítá jednou a použije se na běžnou ránu i na speciál.
+    const hust = level === 'hard' ? this.hustota(s, h) : null;
+
     // 2) Speciální střela, když na ni mám a vyplatí se.
-    const spec = level === 'easy' ? null : this.vyberSpecial(s, h, level);
+    const spec = level === 'easy' ? null : this.vyberSpecial(s, h, level, hust);
 
     // 3) Lov: šachovnice, ať se pokryje víc moře stejným počtem ran.
     //    Nejkratší loď má 2 pole, takže každé druhé stačí.
@@ -184,7 +187,6 @@ export default {
     // když už není kam jinam – poslední pole společné všem to vyžaduje.
     // Šachovnice a střed jsou taky dovednost – easy střílí, kam ho napadne.
     // Tvrdý bot místo šachovnice počítá, kde ještě může loď vůbec ležet.
-    const hust = level === 'hard' ? this.hustota(s, h) : null;
     const lov = volna.map(p => ({
       ...p, typ: 'normal',
       v: (lodNaPoli(s, h, p.x, p.y) ? -500 : 0)
@@ -260,7 +262,7 @@ export default {
 
   // Speciální střela se vyplatí, když pokryje hodně NEprostřílených polí
   // a netrefí moje vlastní lodě.
-  vyberSpecial(s, h, level) {
+  vyberSpecial(s, h, level, hust) {
     let nej = null;
     for (const typ of ['bomba', 'radek', 'sloupec']) {
       if (s.body[h] < STRELY[typ].cena) continue;
@@ -268,12 +270,18 @@ export default {
         for (let x = 0; x < s.strana; x++) {
           if (!lzeStrelit(s, h, typ, x, y)) continue;
           const c = cile(s, typ, x, y).filter(p => !s.strileno[idx(s.strana, p.x, p.y)]);
-          // Cena za pole – pod jedno pole na bod to nestojí za řeč.
-          const hodnota = c.length * 26 - STRELY[typ].cena * 22;
-          // Tvrdý bot střílí speciál radši tam, kde už něco našel.
+          // Body jsou jen měna, skóre se za ně neplatí – takže cena váží málo
+          // a rozhoduje hlavně to, kolik NOVÝCH polí střela odkryje.
+          // S původním přepáčkem (cena × 22) bot šetřil a nechal si na konci
+          // 3,7 nevyužitých bodů.
+          const hodnota = c.length * 26 - STRELY[typ].cena * 8;
+          // Tvrdý bot místí speciál podle též mapy hustoty jako normální ránu –
+          // počítat jen počet čerstvých políček je málo, když některá už loď
+          // mít nemohou. K tomu přirážka za místa vedle nalezených zásahů.
           const bonus = level === 'hard'
-            ? c.filter(p => sousedi(s.strana, p.x, p.y)
-              .some(q => (s.zasazeni[`${q.x},${q.y}`] || []).some(k => k !== h && s.zije[k]))).length * 18
+            ? (hust ? c.reduce((a2, p) => a2 + hust[idx(s.strana, p.x, p.y)], 0) * 2 : 0)
+              + c.filter(p => sousedi(s.strana, p.x, p.y)
+                .some(q => (s.zasazeni[`${q.x},${q.y}`] || []).some(k => k !== h && s.zije[k]))).length * 18
             : 0;
           const v = hodnota + bonus;
           if (v > 0 && (!nej || v > nej.v)) nej = { x, y, typ, v };

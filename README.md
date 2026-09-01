@@ -906,9 +906,24 @@ zásah může patřit několika hráčům naráz, takže dorážka je tu ještě
 | normal | dorážka + šachovnice |
 | hard | **mapa hustoty** – kde ještě může loď vůbec ležet |
 
-hard vs easy 91,7 %, normal vs easy 94,8 %. **hard vs normal jen 55 %** –
-mapa hustoty přidá 8 % zásahů (11,9 vs 11,0 na partii), což na výhru stačí
-jen těsně. Když dorážku uměly všechny úrovně, byly k nerozeznání (0,2 σ).
+hard vs easy 96,5 %, normal vs easy 91,3 %, **hard vs normal 56,4 %** (1,8 σ).
+Když dorážku uměly všechny úrovně, byly k nerozeznání (0,2 σ).
+
+### Ceny střel musí sedět na pokrytí
+
+Speciály jsou po změně výhry čistou měnou – utrácení nesnižuje skóre, takže
+se vyplatí pálit, kdykoliv na ně máš. Ale při původních cenách byly **dva ze
+čtyř druhů střel mrtvé**:
+
+| | pokrytí | cena | polí na bod | použití za partii |
+|---|---|---|---|---|
+| bomba (původně) | 9 | 3 | 3,0 | 2,1 |
+| řádek (původně) | 12 | 5 | 2,4 | **0,17** |
+| bomba (teď) | 9 | 4 | 2,25 | 2,7 |
+| linie (teď) | 12 | 5 | 2,4 | 1,0 a 0,35 |
+
+Linie teď odkryje o kousek víc polí na bod, zato rozesetých – hůř se jí
+doráží začatá loď. Nevyužitých bodů na konci ubylo z 3,7 na 2,8.
 
 ## Piškvorky
 
