@@ -257,7 +257,15 @@ function efekt(n, h, r, c, kralovna) {
 
   if (druh === 'komar' || druh === 'leknin') {
     const k = klic(r, c);
-    if (n.pouzito.includes(k)) return false;   // v tomhle tahu už dala
+    if (n.pouzito.includes(k)) {
+      // Každá kartička dá tah navíc jen jednou za tah – jinak by žába
+      // mohla mezi dvěma komáry skákat donekonečna. Musí to ale říct,
+      // jinak to vypadá, že tah skončil bezdůvodně.
+      rekni(n, druh === 'komar'
+        ? 'Tenhle komár už v tomhle tahu byl snědený – tah končí.'
+        : 'Na tomhle leknínu už jsi v tomhle tahu byl – tah končí.');
+      return false;
+    }
     n.pouzito.push(k);
 
     // Komár i leknín dají tah navíc, jen si vybírají opačně:
