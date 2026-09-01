@@ -197,6 +197,8 @@ function zapas(seed, levely) {
   const zpet = tah(kk, 1, 2, true, 1, 1);
   zkus('ale v jednom tahu z jednoho komára jen jednou',
     zpet.naTahu === 1, 'návrat na první komára tah ukončí');
+  zkus('a řekne se proč', /už v tomhle tahu byl snědený/.test(zpet.hlaska || ''),
+    zpet.hlaska || 'nic – vypadalo by to jako chyba');
 
   // Štika – sežere i královnu
   const poS = tah(priprav('stika'), 0, 0, true, 1, 1);
