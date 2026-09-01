@@ -126,6 +126,48 @@ přidej `vgamehub.duckdns.org`.
 cd ~/gamehub && git pull && npm ci --omit=dev && sudo systemctl restart gamehub
 ```
 
+## Když stránku blokuje síť (škola, práce)
+
+Na školní wifi to hlásí „nebezpečná“ nebo „nezabezpečená stránka“, doma jede
+normálně. **Chyba není na serveru.** `*.duckdns.org` je sdílená dynamická
+DNS a hodně se zneužívá na phishing, takže ji filtry řadí do kategorie
+„dynamic DNS / uncategorized“ a varírují u všeho, co na ní běží – bez ohledu
+na obsah.
+
+### Nejdřív zjisti, co to vlastně je
+
+Na té síti otevři stránku a klikni na zámek v adresním řádku → podrobnosti
+certifikátu. Podle **vydavatele** poznáš, o co jde:
+
+| Vydavatel certifikátu | Co se děje | Dá se s tím něco dělat |
+|---|---|---|
+| `Let's Encrypt` | certifikát je v pořádku, varíruje **filtr kvůli doméně** | ano – vlastní doména, viz níž |
+| něco jiného (Fortinet, Zscaler, jméno školy…) | síť rozbaluje HTTPS a podepisuje ho svou autoritou | ne z naší strany – je to nastavení jejich sítě |
+
+Když ostatní stránky na té wifi jedou bez varování, je to skoro jistě
+ten první případ.
+
+### Oprava: vlastní doména
+
+Vlastní doména (`.cz` vyjde na cca 200–300 Kč/rok) má čistou reputaci
+a nešlape na kategorii dynamického DNS.
+
+1. koupíš doménu, uděláš `A` záznam na IP toho stroje
+2. dopišeš ji do `Caddyfile` čárkou vedle té stávající a `sudo systemctl reload caddy`
+3. přidáš ji do Firebase → Authentication → Authorized domains
+4. přepíšeš `ADRESA` v `nasadit.bat` (jen kvůli výpisu na konci)
+
+V kódu se **nemění nic** – adresa WebSocketu se skladá z `location.host`.
+Obě domény mohou běžet vedle sebe, takže přechod není výpadek.
+
+Nepovinně navíc: pustit doménu přes **Cloudflare** (free tarif, režim
+„proxied“). Provoz pak chodí z jejich IP rozsahu, který filtry znají,
+a není vidět IP tvého stroje. Cloudflare WebSockety pouští.
+
+> Tohle řeší **špatné zařazení** domény. Když škola blokuje hry záměrně,
+> je přechod na jinou doménu obcházení jejich pravidel – to už je na tobě,
+> ne technický problém.
+
 ## Když něco nefunguje
 
 | Co vidíš | Kde hledat |
@@ -133,6 +175,7 @@ cd ~/gamehub && git pull && npm ci --omit=dev && sudo systemctl restart gamehub
 | Stránka se vůbec nenačte | firewall — **oba** podle kroku 5 |
 | „Připojuji…" a nic | běží server? `systemctl status gamehub` |
 | Neplatný certifikát | míří duckdns na správnou IP? je port 80 otevřený? |
+| „Nebezpečná stránka“ jen na některé síti | filtr sítě, ne server – viz sekce výše |
 | Hostům mizí identita | chybí `GH_SECRET`, viz krok 4 |
 | Chyby v běhu | `journalctl -u gamehub -f` |
 

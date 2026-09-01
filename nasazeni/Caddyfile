@@ -9,6 +9,17 @@
 
 # Adresa z duckdns.org. Caddy si k ní certifikát obstará sám, jakmile
 # na stroj vede port 80 a 443 (viz krok 5 v NAVOD.md).
+#
+# CHCEŠ PŘIDAT VLASTNÍ DOMÉNU? Dopiš ji sem čárkou, až bude mít A záznam
+# na tuhle IP. Caddy si na každou vezme vlastní certifikát a obě pojedou
+# vedle sebe, takže se dá přejít bez výpadku:
+#
+#   vgamehub.duckdns.org, hry.mojedomena.cz {
+#
+# V klientu se nic měnit nemusí – adresu WebSocketu si skládá z
+# `location.host` (public/js/net.js). Nezapomeň ale doménu přidat do
+# Firebase → Authentication → Authorized domains, jinak přestane
+# fungovat přihlášení přes Google.
 vgamehub.duckdns.org {
 	reverse_proxy localhost:3000
 
