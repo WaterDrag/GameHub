@@ -44,7 +44,7 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | 6 motivů vzhledu, propisují se i do herní plochy | ✅ |
 | Hub s filtry, hledáním (bez ohledu na diakritiku) a živými statistikami | ✅ |
 | Rate limit, ochrana proti path traversal, sanitizace jmen a chatu | ✅ |
-| Piškvorky 15×15 (skutečné ✕ a ◯) | ✅ |
+| **Piškvorky** – tři režimy: 3×3, 15×15 a ultimátní | ✅ |
 | **Aréna** – real-time deathmatch s predikcí, interpolací a boty | ✅ |
 | **Dostihy a sázky** – celá pravidla na serveru, obchodování, boti | ✅ |
 | **Závody** – okruh shora, predikce řízení, kontrolní body, boti | ✅ |
@@ -851,6 +851,45 @@ Rozdíl mezi **normal a hard** je ve dvou věcech: tvrdý bot čte barvu vody
 (viz výš) a nenechává žabky stát pod úderem. Bez toho byly úrovně
 k nerozeznání (0,3 σ).
 
+
+## Piškvorky
+
+Tři režimy nad jedním jádrem (`shared/games/gomoku/pravidla.js`), vybírají
+se před hrou:
+
+| | deska | výhra |
+|---|---|---|
+| **Malé** | 3×3 | tři v řadě |
+| **Velké** | 15×15 | pět v řadě |
+| **Ultimátní** | devět desek 3×3 | tři desky v řadě |
+
+### Ultimátní
+
+Kam zahraješ v malé desce, tam musí soupeř hrát tu velkou. Když ho pošleš
+na desku, která je už dohraná, vybírá si sám. **Remízová deska se do velké
+řady nepočítá** – nepatří nikomu.
+
+Kreslí se jako mřížka 9×9 s každou třetí čarou zesílenou; bez toho se devět
+malých desek sleje do jedné velké a nejdou od sebe rozeznat. Deska, kam se
+zrovna smí, má zlatý rámeček, dohrané dostanou velký symbol přes celou plochu.
+
+### Boti
+
+Klasika počítá sílu řad (kolik kamenů a kolik otevřených konců) – táž
+heuristika obslouží 3×3 i 15×15, jen s jiným `vyhra`.
+
+U ultimátní to nestačí: rozhoduje **kam tím tahem pošleš soupeře**. Bot proto
+hodnotí tři věci naráz – co tah udělá v malé desce, co na velké, a jestli
+soupeři nenávratně nedaruje desku, kterou si vezme. Poslat soupeře na volnou
+ruku je nejdražší ze všeho.
+
+| souboj | výhry |
+|---|---|
+| klasika: hard vs easy | 97,5 % |
+| ultimátní: hard vs easy | 94,6 % |
+
+Medián partie: malé 9 tahů (14 z 20 remíza – 3×3 je remízová hra),
+velké 31, ultimátní 63.
 
 ## Šachy
 
