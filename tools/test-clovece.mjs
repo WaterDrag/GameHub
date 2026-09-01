@@ -367,6 +367,29 @@ function zapas(seed, levely, mody = {}) {
   s2.poz[0][0] = O2 + 2;               // předposlední políčko cíle
   const zadny = [2,3,4,5,6,7,8,9,10,11,12].every(k => !tahy(s2, 0, k).some(x => x.fig === 0));
   zkus('předposlední pole cíle je s dvojkostkou koncová', zadny, 'na poslední by byla potřeba jednička');
+
+  // …a proto se na dráze nesmí zahrát tah, po kterém by figurce do jediného
+  // volného políčka zbývala právě 1. Rozhodnutí uživatele.
+  const sl = novaHra('mala', 2, 4, { double: true });
+  sl.poz[0] = [O2 - 3, O2 + 1, O2 + 2, O2 + 3];   // volné je jen první pole cíle
+  zkus('do slepé uličky se vstoupit nedá',
+    !tahy(sl, 0, 2).some(x => x.fig === 0), 'hod 2 by nechal figurku o 1 před cílem');
+  zkus('ale přesný doskok jde',
+    tahy(sl, 0, 3).some(x => x.fig === 0 && x.na === O2), 'hod 3 dojde přesně');
+
+  // Uvěznit se dá i JINOU figurkou – tím, že jí zaplní poslední volné místo.
+  const sl2 = novaHra('mala', 2, 4, { double: true });
+  sl2.poz[0] = [O2 - 1, O2 + 1, O2 + 2, O2 - 3];  // f0 těsně před cílem, volné O2 a O2+3
+  zkus('ani zaplněním posledního místa jinou figurkou',
+    !tahy(sl2, 0, 6).some(x => x.fig === 3), 'f3 by na O2+3 uvěznila f0');
+  zkus('když ale zůstane kam, tah projde',
+    tahy(sl2, 0, 3).some(x => x.fig === 3 && x.na === O2), 'f3 na O2 nechá f0 dojít na O2+3');
+
+  // S jednou kostkou se nic z toho neřeší – jednička padá běžně.
+  const sl3 = novaHra('mala', 2, 4, {});
+  sl3.poz[0] = [O2 - 3, O2 + 1, O2 + 2, O2 + 3];
+  zkus('bez Double trouble žádná slepá ulička není',
+    tahy(sl3, 0, 2).some(x => x.fig === 0), 'hod 2 projde');
 }
 
 // ── 9b. Dvě stejné = hází se znovu ─────────────────────

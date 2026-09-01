@@ -91,6 +91,30 @@ export function obsazeniDrahy(s) {
 
 const mamNaKroku = (s, hrac, krok) => s.poz[hrac].some(k => k === krok);
 
+// Slepá ulička: zasekla by se tu figurka navždy?
+//
+//  U Double trouble je nejmenší součet 2, takže figurce, které do jediného
+//  volného políčka chybí právě 1, už nikdy nic nepadne – a protože poslední
+//  figurky v cíli se už taky nehnou, není šance, že se to rozmotá.
+//  Rozhodnutí uživatele: takový tah se prostě nesmí zahrát, takže se musí
+//  zůstat aspoň dvě políčka před domečkem.
+//
+//  Řeší se jen DRÁHA. V cíli už je figurka doma a hnout se nepotřebuje.
+//  `poz` je rozložení figurek, pro které se to počítá – díky tomu jde
+//  zeptat se i na stav PO zvažovaném tahu.
+function slepaUlicka(s, m, poz, na) {
+  if (!s.mody?.double) return false;          // s jednou kostkou je minimum 1
+  if (!naDraze(m, na)) return false;
+  if (s.mody.boomerang) return false;         // couvnout jde za 1–3, zaseknutá není
+  const konec = posledniKrok(m);
+  for (let d = 2; d <= 12 && na + d <= konec; d++) {
+    if (!poz.some(k => k === na + d)) return false;
+  }
+  return true;
+}
+
+const kolikZaseknutych = (s, m, poz) => poz.filter(k => slepaUlicka(s, m, poz, k)).length;
+
 // Padly u Double trouble dvě stejné? Na těch se tah nezastavuje.
 export const jeDvojice = (s) => !!(s.mody?.double && s.kostky
   && s.kostky.length === 2 && s.kostky[0] === s.kostky[1]);
@@ -120,6 +144,14 @@ export function cesta(s, hrac, z, na) {
 
 // ── Legální tahy ─────────────────────────────────────────────
 // Vrací pole {fig, z, na, vyhodi, couv, preskoci}.
+// Zasekne tenhle tah některou moji figurku, která zaseknutá ještě není?
+function zasekneTah(s, m, hrac, fig, na) {
+  if (!s.mody?.double || s.mody.boomerang) return false;
+  const poz = s.poz[hrac].slice();
+  poz[fig] = na;
+  return kolikZaseknutych(s, m, poz) > kolikZaseknutych(s, m, s.poz[hrac]);
+}
+
 export function tahy(s, hrac = s.naTahu, kostka = s.kostka) {
   if (s.vitez !== null || s.sniper || !kostka) return [];
   const m = mapaHry(s);
@@ -145,9 +177,11 @@ export function tahy(s, hrac = s.naTahu, kostka = s.kostka) {
       continue;
     }
 
-    // Dopředu.
+    // Dopředu. Tah, který by některou moji figurku nechal navždy stát,
+    // se nesmí zahrát – a to i tehdy, když se zasekne JINÁ než ta tažená
+    // (třeba tím, že jí tenhle tah zaplnil poslední volné místo v cíli).
     const na = k + kostka;
-    if (na <= konec && !mamNaKroku(s, hrac, na)) {
+    if (na <= konec && !mamNaKroku(s, hrac, na) && !zasekneTah(s, m, hrac, f, na)) {
       out.push({ fig: f, z: k, na, vyhodi: vCili(m, na) ? null : ciziNa(na), couv: false });
     }
 
