@@ -51,12 +51,33 @@ function zapas(seed, levely) {
   const ctx = { rng, players, reject: () => {}, emit: () => {} };
   const state = hra.createState({ players, rng });
 
-  const st = { kroku: 0, zaseknuto: false, zabySedi: true, stik: 0, plozeni: 0, navic: 0 };
+  const mistaZab = (s, h) => new Set(vsechnyZaby(s, h).map(z => `${z.r}-${z.c}`));
+  const st = {
+    kroku: 0, zaseknuto: false, zabySedi: true, stik: 0, plozeni: 0, navic: 0,
+    tahu: 0, naKomarovi: 0, kroku0: 0, delkyTahu: [],
+  };
   while (hra.result(state) === null && st.kroku < STROP) {
     const pred = state.hra.akci;
     const predLog = state.hra.log.length;
+    const predHrac = state.hra.naTahu;
+    const predMista = mistaZab(state.hra, predHrac);
+    const predPouzito = [...state.hra.pouzito];
     hra.zahrajZa(state, ctx, null);
     st.kroku++;
+    st.kroku0++;
+
+    // Skončil tah tím, že žába dosedla na komára, který ještě nedal bonus?
+    // To by znamenalo, že tam bot přišel pro nic – přesně to hráč hlásil.
+    if (state.hra.naTahu !== predHrac && state.hra.akci !== pred) {
+      st.tahu++;
+      st.delkyTahu.push(st.kroku0);
+      st.kroku0 = 0;
+      for (const m of mistaZab(state.hra, predHrac)) {
+        if (predMista.has(m) || predPouzito.includes(m)) continue;
+        const [r, c] = m.split('-').map(Number);
+        if (druhNa(state.hra, r, c) === 'komar') st.naKomarovi++;
+      }
+    }
     if (!zabySedi(state.hra)) st.zabySedi = false;
     for (const r of state.hra.log.slice(predLog)) {
       if (/Štika/.test(r)) st.stik++;
@@ -318,6 +339,20 @@ function zapas(seed, levely) {
     st.filter(x => x.dohrano).length === BEHU, `${st.filter(x => x.dohrano).length}/${BEHU}`);
   zkus('žádné zaseknutí', st.every(x => !x.zaseknuto), `${st.filter(x => x.zaseknuto).length} zaseknutých`);
   zkus('žáby se nemnoží samy', st.every(x => x.zabySedi), `${st.filter(x => !x.zabySedi).length} chybných`);
+
+  // Regrese: bot lezl i na komára, který už v tom tahu bonus dal – nedostal
+  // nic a tah mu skončil právě tam. Vypadalo to, že jen poskáče mezi komáry.
+  const naKom = st.reduce((a, x) => a + x.naKomarovi, 0);
+  const vsechTahu = st.reduce((a, x) => a + x.tahu, 0);
+  zkus('tah nikdy neskončí na čerstvém komárovi', naKom === 0, `${naKom} z ${vsechTahu} tahů`);
+
+  const delky = st.flatMap(x => x.delkyTahu).sort((a, b) => a - b);
+  const prumer = delky.reduce((a, b) => a + b, 0) / delky.length;
+  zkus('tahy se nezvrhnou v řetěz bonusů', prumer < 3,
+    `průměrně ${prumer.toFixed(2)} kroku na tah (před opravou 2,45)`);
+  console.log(`  délka tahu: medián ${delky[Math.floor(delky.length / 2)]},`
+    + ` průměr ${(delky.reduce((a, b) => a + b, 0) / delky.length).toFixed(2)},`
+    + ` max ${delky[delky.length - 1]}`);
 
   const kroky = st.map(x => x.kroku).sort((a, b) => a - b);
   console.log(`  ${POCET} hráčů: medián ${kroky[Math.floor(kroky.length / 2)]} tahů`

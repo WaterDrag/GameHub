@@ -29,7 +29,7 @@ const LOG_MAX = 10;
 const CENA = {
   cizoKralovna: 1000,
   cizoZaba: 120,
-  komar: 45,
+  komar: 20,            // tah navíc je zhruba jeden tah, ne půl sežrané žáby
   samec: 90,
   rakos: 30,
   neznameZabkou: 14,
@@ -202,9 +202,13 @@ export default {
         ? CENA.stikaKralovnou * p
         : CENA.neznameZabkou + CENA.stikaZabkou * p;
     } else if (druh === 'komar' || druh === 'leknin') {
-      // Leknín dá tah navíc jen tehdy, když mám čím táhnout JINOU žábou;
-      // komár naopak pokračuje touž, takže platí vždycky.
-      if (druh === 'komar' || vsechnyZaby(s, h).length > 1) v += CENA.komar;
+      // Kartička dá tah navíc jen jednou za tah. Bez téhle podmínky na ni
+      // bot lezl i podruhé, nedostal nic a tah mu skončil právě tam –
+      // vypadalo to, že jen poskáče mezi komáry.
+      const uzDala = (s.pouzito || []).includes(`${r}-${c}`);
+      // A leknín navíc potřebuje jinou žábu, kterou by šlo táhnout.
+      const dostanu = !uzDala && (druh === 'komar' || vsechnyZaby(s, h).length > 1);
+      if (dostanu) v += CENA.komar;
     } else if (druh === 'stika') {
       // Štika teď sežere i královnu – to je rovnou prohra.
       v += m.z.kralovna ? CENA.stikaKralovnou : CENA.stikaZabkou;

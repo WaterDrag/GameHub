@@ -814,7 +814,15 @@ a sameček dvě), na kládu se dvěma soupeřovými se vůbec nevstoupí a start
 kartičky se rozdávají z rákosu – kdyby na rohu ležela štika, sežrala by
 královnu prvním tahem.
 
-### Dvě věci, které vylezly z měření
+### Tři věci, které vylezly z měření
+
+**0. Bot lezl na komára, který už v tom tahu bonus dal.** Ocenění kartičky
+nekoukalo na `pouzito`, takže tam žába přišla pro nic a **tah jí skončil
+právě tam** – z venku to vypadalo, že bot jen poskáče mezi komáry.
+Naměřeno 27 takových tahů z 1403; po opravě **0 z 1487**. Současně byl tah
+navíc přeceněný (45 bodů proti 120 za sežranou žábu) – sníženo na 20.
+Průměrná délka tahu klesla z 2,45 na 2,08 kroku a partie se začaly
+rozhodovat: končí vyschnutím už jen 5 ze 40 místo 27.
 
 **1. Komár a leknín se daly milkovat donekonečna.** Platí po celou hru, takže
 žába může skákat mezi dvěma sousedními a tah nikdy neskončí – partie se
@@ -831,9 +839,9 @@ má víc žab. Stejný typ stropu jako `MAX_ROUNDS` u Dostihů.
 
 | souboj | výhry | významnost |
 |---|---|---|
-| hard vs easy | 97,7 % | 16,5 σ |
-| normal vs easy | 93,3 % | 14,6 σ |
-| hard vs normal | 71,7 % | 6,6 σ |
+| hard vs easy | 99,0 % | 16,9 σ |
+| normal vs easy | 96,2 % | 15,7 σ |
+| hard vs normal | 58,1 % | 2,7 σ |
 
 Easy nehraje náhodně – jen si mezi slušnými tahy vybírá nepřesně a nehlídá
 si královnu. Rozdíl mezi **normal a hard** je jediný: tvrdý bot nenechává
