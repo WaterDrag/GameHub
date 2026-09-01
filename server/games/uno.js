@@ -19,9 +19,10 @@ import {
   BARVY, DIVOKA, MILOST, novyBalicek, trestZa, jeDivoka, jeCislo, znak, nazevZnaku,
   BARVA_INFO,
 } from '../../shared/games/uno/karty.js';
+import { TIMING } from '../../shared/constants.js';
 
 const TAH_MS = 60000;      // kolik má člověk na tah
-const BOT_MS = 950;        // bot schválně nehraje okamžitě
+const BOT_MS = TIMING.BOT_KROK_MS;   // 1,4 akce na tah → plný krok
 const LOG_MAX = 8;
 
 // ── Bot ──────────────────────────────────────────────────────

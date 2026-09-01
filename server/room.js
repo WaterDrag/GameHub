@@ -11,8 +11,11 @@ import { makeRng, randomSeed } from '../shared/rng.js';
 import { S, send } from './protocol.js';
 
 const TURN_LOOP_HZ = 4;      // tahovky – stačí na odpočet kola
-const BOT_THINK_MIN = 500;   // ať bot nehraje nelidsky okamžitě
-const BOT_THINK_MAX = 1400;
+// Hubové tempo botů – používají ho hry, které mají `botThink()`
+// (šachy, piškvorky). Odvozuje se ze stejné konstanty jako u ostatních,
+// ať se tempo dá měnit na jednom místě.
+const BOT_THINK_MIN = Math.round(TIMING.BOT_KROK_MS * 0.8);
+const BOT_THINK_MAX = Math.round(TIMING.BOT_KROK_MS * 1.3);
 
 let botCounter = 0;
 

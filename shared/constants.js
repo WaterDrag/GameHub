@@ -21,6 +21,12 @@ export const TIMING = {
   LOBBY_DROP_MS: 20000,     // odpojení v lobby = vyhození po 20 s
   EMPTY_ROOM_MS: 60000,     // místnost bez živého člověka
   COUNTDOWN_MS: 3000,
+
+  // Tempo botů v TAHOVÝCH hrách. Dřív hráli tak rychle, že nebylo poznat,
+  // co vlastně udělali. Jeden krok = jedna akce bota, ne celý tah –
+  // naměřené akce na tah: Katan 3,7 · Člověče 2,6 · Kvak 1,7 · UNO 1,4.
+  // Hry s víc akcemi na tah si krok krátí, ať jeden tah nezabere půl minuty.
+  BOT_KROK_MS: 1400,
 };
 
 export const STATUS = {

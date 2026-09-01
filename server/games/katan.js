@@ -22,9 +22,12 @@ import {
 import {
   SUROVINY, POUST, CENY, DEV_INFO, SUROVINA_INFO, tecky, BODU_NA_VYHRU,
 } from '../../shared/games/katan/deska.js';
+import { TIMING } from '../../shared/constants.js';
 
 const TAH_MS = 120000;     // kolik má člověk na tah
-const BOT_MS = 700;
+// Katan má 3,7 akce na tah (stavění, nákupy, obchod, konec), takže plný
+// krok by z jednoho tahu udělal půl minuty. Krátí se na 70 %.
+const BOT_MS = Math.round(TIMING.BOT_KROK_MS * 0.7);
 const NABIDKA_MS = 1400;  // jak dlouho boti „premysli“ nad nabidkou
 const NABIDKA_CEKANI = 8000;  // jak dlouho bot po sve nabidce ceka na odpoved
 const LOG_MAX = 10;

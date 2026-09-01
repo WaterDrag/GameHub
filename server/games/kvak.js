@@ -19,9 +19,10 @@ import {
 import {
   POLI, KARTY, SAMCI, SLOZENI, SPINAVA, jeSamec, klic, index, sousedi,
 } from '../../shared/games/kvak/const.js';
+import { TIMING } from '../../shared/constants.js';
 
 const TAH_MS = 90000;      // kolik má člověk na tah
-const BOT_MS = 650;
+const BOT_MS = TIMING.BOT_KROK_MS;   // 1,7 akce na tah → plný krok
 const LOG_MAX = 10;
 
 // ── Bot ──────────────────────────────────────────────────────

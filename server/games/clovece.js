@@ -22,12 +22,15 @@ import {
   FIGUREK_MIN, FIGUREK_MAX, okruh, naOkruhu, barvaRamene,
   odhadHodu, odhadMinut, odhadText,
 } from '../../shared/games/clovece/const.js';
+import { TIMING } from '../../shared/constants.js';
 
 const HOD_MS = 60000;      // kolik má člověk na hod
 const TAH_MS = 60000;      // a kolik na výběr figurky
 const AUTO_MS = 1000;      // jediná možnost se zahraje sama
-const BOT_HOD_MS = 800;    // bot schválně nehraje okamžitě, ať se to dá sledovat
-const BOT_TAH_MS = 900;
+// 2,6 akce na tah (hod + výběr figurky). Hod je navíc animovaný, takže
+// výběr figurky musí přijít až po dopadu kostky.
+const BOT_HOD_MS = Math.round(TIMING.BOT_KROK_MS * 0.8);
+const BOT_TAH_MS = TIMING.BOT_KROK_MS;
 const LOG_MAX = 8;
 
 // ── Bot ──────────────────────────────────────────────────────
