@@ -85,6 +85,8 @@
         </div>
       </div>
       <div class="hero-actions">
+        <button id="btnParta" class="btn ghost small">👥 Založit partu</button>
+        <button id="btnPratele" class="btn ghost small">🫂 Přátelé <span id="prateleBadge" class="badge hidden">0</span></button>
         <div class="hero-stat"><b id="statPing">–</b><small>odezva</small></div>
         <div class="hero-stat"><b id="statOnline">–</b><small>online</small></div>
         <div class="hero-stat"><b id="statRooms">–</b><small>místností</small></div>
@@ -134,6 +136,15 @@
       </select>
     </div>
 
+    <div id="partaModRow" class="row hidden">
+      <button id="btnPartaMod" class="btn primary">🎉 Párty mód</button>
+      <select id="partaKola" class="sel">
+        <option value="3">3 kola</option>
+        <option value="5" selected>5 kol</option>
+        <option value="7">7 kol</option>
+      </select>
+    </div>
+    <div id="partaStav" class="parta-stav hidden"></div>
     <button id="btnStart" class="btn ok big">🚀 Spustit hru</button>
     <div id="waitMsg" class="wait">Čekání na hostitele…</div>
 
@@ -145,20 +156,42 @@
       </div>
     </div>
 
+    <button id="btnPozvanka" class="btn ghost">🔗 Zkopírovat pozvánku</button>
     <button id="btnLeaveRoom" class="btn ghost">Odejít z čekárny</button>
   </div>
 </section>
 
 <!-- ── Hra ───────────────────────────────────────────────── -->
+<!-- ── Parta ─────────────────────────────────── -->
+<!-- Plave v rohu, aby byla vidět v hubu i v čekárně – parta drží
+     pohromadě napříč hrami, takže nemůže žít uvnitř jedné obrazovky. -->
+<div id="partyBox" class="party-box hidden">
+  <div class="party-hlava">
+    <b>👥 Parta</b>
+    <span id="partyKod" class="party-kod" title="Klikni pro zkopírování odkazu">–</span>
+    <button id="partySbal" class="party-x" type="button" title="Sbalit">–</button>
+  </div>
+  <div id="partyTelo">
+    <div id="partyClenove" class="party-clenove"></div>
+    <div class="party-tlacitka">
+      <button id="partyOdkaz" class="btn ghost small" type="button">🔗 Odkaz</button>
+      <button id="partyNatahni" class="btn ok small hidden" type="button">⬇ Natáhnout do hry</button>
+      <button id="partyPryc" class="btn ghost small" type="button">Opustit</button>
+    </div>
+  </div>
+</div>
+
 <section id="view-game" class="view">
   <div id="stage" class="stage"></div>
   <div id="hud" class="hud"></div>
   <button id="btnLeaveGame" class="btn danger leave-btn">✕ Opustit hru</button>
+  <div id="partaChip" class="parta-chip hidden"></div>
 
   <div id="gameOver" class="overlay">
     <div class="panel over-panel">
       <div class="over-title"></div>
       <div class="over-reason"></div>
+      <div id="overParta" class="over-parta hidden"></div>
       <div class="row">
         <button id="btnRematch" class="btn primary">↻ Odveta</button>
         <button id="btnBackToHub" class="btn ghost">Zpět do hubu</button>
@@ -204,6 +237,27 @@
   </div>
 </div>
 
+<div id="modalPratele" class="modal">
+  <div class="panel wide">
+    <h3>🫂 Přátelé</h3>
+    <div class="pr-muj">
+      <span>Tvůj kód:</span>
+      <b id="prMujKod" class="pr-kod" title="Klikni pro zkopírování">––––––</b>
+      <small>Pošli ho kamarádovi, ať si tě přidá.</small>
+    </div>
+    <div class="row">
+      <input id="prKodInput" maxlength="6" placeholder="Kód kamaráda" autocomplete="off" spellcheck="false">
+      <button id="btnPrPridat" class="btn ok">Přidat</button>
+    </div>
+    <div id="prZadostiBox" class="hidden">
+      <div class="sec-label">Žádosti</div>
+      <div id="prZadosti" class="pr-list"></div>
+    </div>
+    <div class="sec-label">Kamarádi</div>
+    <div id="prSeznam" class="pr-list"></div>
+  </div>
+</div>
+
 <div id="modalPick" class="modal">
   <div class="panel">
     <h3 id="pickTitle">Hra</h3>
@@ -213,6 +267,7 @@
       <span>Viditelnost</span>
       <select id="pickVis" class="sel">
         <option value="public">🌐 veřejná – kdokoliv se přidá</option>
+        <option value="pratele">🫂 jen přátelé – uvidí ji v seznamu</option>
         <option value="private">🔒 soukromá – jen na kód</option>
       </select>
     </label>

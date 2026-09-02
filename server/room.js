@@ -9,6 +9,8 @@
 import { STATUS, TIMING } from '../shared/constants.js';
 import { makeRng, randomSeed } from '../shared/rng.js';
 import { S, send } from './protocol.js';
+import { GAMES, cistiVolby } from './games/index.js';
+import { losujPlan, moznosti, tabulka, vitezove, PAUZA_MS, KOLA_VOLBY } from './party-mod.js';
 
 const TURN_LOOP_HZ = 4;      // tahovky – stačí na odpočet kola
 // Hubové tempo botů – používají ho hry, které mají `botThink()`
@@ -45,7 +47,8 @@ export class Room {
     this.manager = manager;
     this.hostUid = hostUid;
     this.options = options || {};
-    this.visibility = visibility === 'private' ? 'private' : 'public';
+    // 'pratele' = v seznamu ji vidí jen kamarádi někoho uvnitř.
+    this.visibility = ['private', 'pratele'].includes(visibility) ? visibility : 'public';
     this.maxPlayers = Math.min(maxPlayers || game.maxPlayers, game.maxPlayers);
     this.players = new Map();      // uid -> Player
     this.status = STATUS.LOBBY;
@@ -57,6 +60,10 @@ export class Room {
     this.lastTick = 0;
     this.createdAt = Date.now();
     this.chat = [];
+    // Párty mód: {kola, kolo, plan[], body{uid:n}, hotovo}. Mimo něj null –
+    // místnost se pak chová úplně obyčejně.
+    this.parta = null;
+    this.partaTimer = null;
   }
 
   // ── Hráči ────────────────────────────────────────────────
@@ -172,6 +179,100 @@ export class Room {
     this.normOptions();
     this.broadcastRoom();
     return null;
+  }
+
+  // ── Párty mód ────────────────────────────────────────────
+  //  Místnost přestane být místností jedné hry: hru si losuje sama,
+  //  sama ji nastaví podle počtu hráčů a po dohrání jede dál.
+  spustParty(uid, kola) {
+    if (uid !== this.hostUid) return 'Párty mód spouští hostitel.';
+    if (this.status !== STATUS.LOBBY) return 'Hra už běží.';
+    if (this.parta) return 'Párty mód už jede.';
+    if (this.activeCount < 2) return 'Na párty mód jsou potřeba aspoň dva.';
+
+    const k = KOLA_VOLBY.includes(Number(kola)) ? Number(kola) : KOLA_VOLBY[1];
+    const sBoty = this.list.some(p => p.bot);
+    const plan = losujPlan(this.activeCount, sBoty, k, this.rng);
+    if (!plan.length) return 'Pro tenhle počet hráčů nemám žádnou minihru.';
+
+    this.parta = { kola: k, kolo: 0, plan, body: {}, hotovo: false };
+    for (const p of this.list) this.parta.body[p.uid] = 0;
+    this.dalsiKolo();
+    return null;
+  }
+
+  // Hráč mohl mezitím odejít – hra z plánu už nemusí na daný počet sedět.
+  // Radši se vymění, než aby párty mód spadl.
+  hraProKolo() {
+    const id = this.parta.plan[this.parta.kolo];
+    const g = GAMES[id];
+    const sedi = (x) => x && this.activeCount >= x.minPlayers && this.activeCount <= x.maxPlayers
+      && (!this.list.some(p => p.bot) || x.supportsBots);
+    if (sedi(g)) return g;
+    const nahrada = this.rng.pick(moznosti(this.activeCount, this.list.some(p => p.bot)) || []);
+    if (nahrada) this.parta.plan[this.parta.kolo] = nahrada.id;
+    return nahrada || null;
+  }
+
+  dalsiKolo() {
+    if (!this.parta) return;
+    const hra = this.hraProKolo();
+    if (!hra) { this.ukonciParty('Pro tolik hráčů už nemám co pustit.'); return; }
+
+    this.parta.kolo++;
+    this.game = hra;
+    this.maxPlayers = Math.min(hra.maxPlayers, Math.max(this.activeCount, this.maxPlayers));
+    // Volby si hra losuje sama; přesto projdou stejnou kontrolou jako od
+    // hostitele – hub nikdy nevěří ničemu, co do options přijde.
+    this.options = cistiVolby(hra, hra.partyOptions?.(this.activeCount, this.rng) || {});
+    this.normOptions();
+    this.seed = randomSeed();
+    this.state = null;
+    this.status = STATUS.COUNTDOWN;
+    for (const p of this.list) { p.ready = true; p._botAt = 0; p._botMove = null; }
+    this.broadcastRoom();
+
+    this.broadcast(S.PARTY_KOLO, {
+      kolo: this.parta.kolo, kola: this.parta.kola,
+      gameId: hra.id, title: hra.title, emoji: hra.emoji,
+      tabulka: tabulka(this.parta, this.list),
+    });
+
+    let n = Math.round(TIMING.COUNTDOWN_MS / 1000);
+    this.broadcast(S.COUNTDOWN, { n });
+    const iv = setInterval(() => {
+      n--;
+      if (n > 0) { this.broadcast(S.COUNTDOWN, { n }); return; }
+      clearInterval(iv);
+      if (this.status === STATUS.COUNTDOWN) this.begin();
+    }, 1000);
+  }
+
+  // Body se přičtou vítězi kola, pak se buď jede dál, nebo se vyhlásí.
+  zapisKolo(result) {
+    for (const uid of result.winners || []) {
+      if (this.players.has(uid)) this.parta.body[uid] = (this.parta.body[uid] || 0) + 1;
+    }
+    const posledni = this.parta.kolo >= this.parta.kola;
+    if (posledni) this.parta.hotovo = true;
+    return {
+      kolo: this.parta.kolo, kola: this.parta.kola, hotovo: posledni,
+      tabulka: tabulka(this.parta, this.list),
+      vitezove: posledni ? vitezove(this.parta, this.list).map(x => x.uid) : [],
+      dalsi: posledni ? null : (GAMES[this.parta.plan[this.parta.kolo]] || null),
+      pauza: PAUZA_MS,
+    };
+  }
+
+  ukonciParty(duvod = null) {
+    clearTimeout(this.partaTimer);
+    this.partaTimer = null;
+    this.parta = null;
+    this.status = STATUS.LOBBY;
+    this.state = null;
+    for (const p of this.list) p.ready = p.bot;
+    if (duvod) this.broadcast(S.ERROR, { msg: duvod });
+    this.broadcastRoom();
   }
 
   // ── Start ────────────────────────────────────────────────
@@ -382,10 +483,24 @@ export class Room {
     this.status = STATUS.OVER;
     clearInterval(this.timer);
     this.timer = null;
-    this.broadcast(S.OVER, { result, players: this.publicPlayers() });
+
+    // V párty módu není konec hry koncem místnosti – je to konec kola.
+    const parta = this.parta ? this.zapisKolo(result) : null;
+    this.broadcast(S.OVER, { result, players: this.publicPlayers(), parta });
+    if (!parta) return;
+
+    clearTimeout(this.partaTimer);
+    this.partaTimer = setTimeout(() => {
+      this.partaTimer = null;
+      if (!this.parta) return;
+      if (this.parta.hotovo) this.ukonciParty();
+      else this.dalsiKolo();
+    }, PAUZA_MS);
+    this.partaTimer.unref?.();
   }
 
   rematch(uid) {
+    if (this.parta) return 'V párty módu se pokračuje samo.';
     if (this.status !== STATUS.OVER) return 'Hra ještě neskončila.';
     if (uid !== this.hostUid) return 'Odvetu spouští hostitel.';
     this.status = STATUS.LOBBY;
@@ -466,6 +581,9 @@ export class Room {
       optionsTitle: this.game.optionsTitle || null,
       optionZamky: zamky, optionInfo: info,
       canStart: this.activeCount >= this.game.minPlayers,
+      parta: this.parta
+        ? { kolo: this.parta.kolo, kola: this.parta.kola, tabulka: tabulka(this.parta, this.list) }
+        : null,
       chat: this.chat.slice(-30),
     };
   }
@@ -479,6 +597,8 @@ export class Room {
   destroy() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    clearTimeout(this.partaTimer);
+    this.partaTimer = null;
     for (const p of this.list) send(p.ws, S.LEFT, { reason: 'closed' });
     this.players.clear();
   }

@@ -13,6 +13,8 @@ import { WebSocketServer } from 'ws';
 import { identify, PROJECT_ID, DEV_AUTH } from './auth.js';
 import { C, S, send } from './protocol.js';
 import { RoomManager } from './rooms.js';
+import { PartyManager } from './party.js';
+import { Pratele } from './pratele.js';
 import { gameList } from './games/index.js';
 import { TIMING, STATUS, PROTO_VERSION } from '../shared/constants.js';
 
@@ -23,6 +25,54 @@ const SHARED = path.join(ROOT, 'shared');
 const PORT = process.env.PORT || 3000;
 
 const manager = new RoomManager();
+
+// Spojení podle uid – vůdce party potřebuje ostatní někam přesunout.
+// Drží se poslední spojení, stejně jako to dělá místnost.
+const conns = new Map();
+
+const pratele = new Pratele();
+manager.jePritel = (a, b) => pratele.jsouPratele(a, b);
+
+// Kde hráč zrovna je – přátelé to vidí v seznamu, ať se dá skočit za nimi.
+function kdeJe(uid) {
+  const r = manager.roomOf(uid);
+  if (!r) return null;
+  return {
+    code: r.code, hra: r.game.title, emoji: r.game.emoji,
+    status: r.status, soukroma: r.visibility === 'private',
+  };
+}
+
+function stavPratel(uid) {
+  const c = conns.get(uid);
+  if (!c || !c.user) return;
+  send(c.ws, S.FRIENDS, pratele.stav(uid, c.user.name, {
+    online: (u) => conns.has(u), kde: kdeJe,
+  }));
+}
+
+// Přátelům se posílá vlastní seznam, ne ten můj – proto jednomu po druhém.
+function oznamPratelum(uid, dotcene = null) {
+  for (const u of dotcene || [uid, ...pratele.pratelaOf(uid)]) stavPratel(u);
+  if (!dotcene) stavPratel(uid);
+}
+
+const party = new PartyManager({
+  najdiConn: (uid) => conns.get(uid) || null,
+  posli: (ws, stav) => send(ws, S.PARTY, { party: stav }),
+  dejDoMistnosti: (conn, kod) => {
+    const room = manager.get(kod);
+    if (!room) return false;
+    if (conn.room === room) return true;
+    if (conn.room) leave(conn);
+    const p = room.add(conn.user, conn.ws);
+    if (!p) return false;
+    conn.room = room; conn.player = p;
+    manager.unwatchLobby(conn.ws);
+    send(conn.ws, S.RESUME, { code: room.code, status: room.status });
+    return true;
+  },
+});
 
 // ── Statika ──────────────────────────────────────────────────
 const MIME = {
@@ -102,6 +152,7 @@ wss.on('connection', (ws, req) => {
     addr: req.socket.remoteAddress,
   };
   ws.conn = conn;
+  // do `conns` se zapisuje až při HELLO, dřív nemá spojení uid
 
   ws.on('pong', () => { conn.alive = true; });
 
@@ -117,7 +168,13 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     manager.unwatchLobby(ws);
+    if (conn.user && conns.get(conn.user.uid) === conn) conns.delete(conn.user.uid);
     if (conn.room && conn.user) conn.room.detach(conn.user.uid, ws);
+    // Ostatní v partě mají vědět, že je teď offline.
+    if (conn.user) {
+      party.rozesli(party.proHrace(conn.user.uid));
+      for (const u of pratele.pratelaOf(conn.user.uid)) stavPratel(u);
+    }
   });
 });
 
@@ -141,6 +198,7 @@ async function handle(conn, msg) {
   if (msg.t === C.HELLO) {
     const auth = await identify({ token: msg.token, name: cleanName(msg.name) }, conn.addr);
     conn.user = { uid: auth.uid, name: cleanName(msg.name || auth.name), guest: auth.guest };
+    conns.set(conn.user.uid, conn);
     send(ws, S.WELCOME, {
       uid: conn.user.uid, name: conn.user.name, guest: conn.user.guest,
       deviceToken: auth.issued || null,   // klient si ho uloží, ať přežije refresh
@@ -164,7 +222,18 @@ async function handle(conn, msg) {
         });
       }
     } else {
-      manager.watchLobby(ws);
+      manager.watchLobby(ws, conn.user.uid);
+    }
+    // Přátelé: aktualizuj přezdívku, pošli seznam sobě i těm, kterým
+    // jsem teď naskočil jako online.
+    pratele.zaznam(conn.user.uid, conn.user.name);
+    oznamPratelum(conn.user.uid);
+
+    // Parta přežije refresh – po přihlášení se rovnou pošle zpátky.
+    const mojeParty = party.proHrace(conn.user.uid);
+    if (mojeParty) {
+      mojeParty.pridej(conn.user);       // jméno se mohlo změnit
+      party.rozesli(mojeParty);
     }
     return;
   }
@@ -173,7 +242,7 @@ async function handle(conn, msg) {
 
   switch (msg.t) {
     case C.LIST:
-      manager.watchLobby(ws);
+      manager.watchLobby(ws, conn.user.uid);
       return manager.pushLobby(ws);
 
     case C.CREATE: {
@@ -212,9 +281,78 @@ async function handle(conn, msg) {
 
     case C.LEAVE:
       leave(conn);
-      manager.watchLobby(ws);
+      manager.watchLobby(ws, conn.user.uid);
       send(ws, S.LEFT, { reason: 'left' });
       return manager.pushLobby(ws);
+
+    // ── Parta ────────────────────────────────────────────────
+    case C.PARTY_NEW:
+      return party.rozesli(party.vytvor(conn.user));
+
+    case C.PARTY_JOIN: {
+      const { party: p, chyba } = party.pripoj(conn.user, msg.kod);
+      if (chyba) return send(ws, S.ERROR, { msg: chyba });
+      return party.rozesli(p);
+    }
+
+    case C.PARTY_LEAVE: {
+      const p = party.opust(conn.user.uid);
+      send(ws, S.PARTY, { party: null });
+      return party.rozesli(p);
+    }
+
+    case C.PARTY_KICK:
+      return void party.vyhod(conn.user.uid, String(msg.uid || ''));
+
+    case C.PARTY_PULL: {
+      const p = party.proHrace(conn.user.uid);
+      if (!p) return send(ws, S.ERROR, { msg: 'Nejsi v partě.' });
+      if (p.vudce !== conn.user.uid) return send(ws, S.ERROR, { msg: 'Jen vůdce party.' });
+      if (!conn.room) return send(ws, S.ERROR, { msg: 'Nejdřív založ místnost.' });
+      const { vzato, nevzato } = party.natahni(p, conn.room.code);
+      party.rozesli(p);
+      conn.room.broadcastRoom();
+      if (nevzato.length) {
+        send(ws, S.ERROR, { msg: `Nevzal jsem: ${nevzato.join(', ')} (offline nebo plno).` });
+      } else if (!vzato) {
+        send(ws, S.ERROR, { msg: 'Nikoho dalšího v partě nemáš.' });
+      }
+      return;
+    }
+
+    // ── Přátelé ──────────────────────────────────────────────
+    case C.FRIENDS:
+      return stavPratel(conn.user.uid);
+
+    case C.FRIEND_ADD: {
+      const r = pratele.pozadat(conn.user.uid, conn.user.name, msg.kod);
+      if (r.chyba) return send(ws, S.ERROR, { msg: r.chyba });
+      oznamPratelum(conn.user.uid, r.dotcene);
+      manager.roomsChanged();
+      if (r.zprava) send(ws, S.ERROR, { msg: r.zprava, ok: true });
+      return;
+    }
+
+    case C.FRIEND_ACCEPT: {
+      const r = pratele.prijmi(conn.user.uid, String(msg.uid || ''));
+      if (r.chyba) return send(ws, S.ERROR, { msg: r.chyba });
+      oznamPratelum(conn.user.uid, r.dotcene);
+      manager.roomsChanged();
+      if (r.zprava) send(ws, S.ERROR, { msg: r.zprava, ok: true });
+      return;
+    }
+
+    case C.FRIEND_DECLINE: {
+      const r = pratele.odmitni(conn.user.uid, String(msg.uid || ''));
+      if (r.chyba) return send(ws, S.ERROR, { msg: r.chyba });
+      return oznamPratelum(conn.user.uid, r.dotcene);
+    }
+
+    case C.FRIEND_REMOVE: {
+      const r = pratele.smaz(conn.user.uid, String(msg.uid || ''));
+      oznamPratelum(conn.user.uid, r.dotcene);
+      return manager.roomsChanged();
+    }
   }
 
   // ── Dál už jen věci uvnitř místnosti ───────────────────────
@@ -225,6 +363,18 @@ async function handle(conn, msg) {
     case C.READY:
       me.ready = !!msg.v;
       return room.broadcastRoom();
+
+    case C.PARTY_MOD: {
+      const err = room.spustParty(conn.user.uid, msg.kola);
+      if (err) send(ws, S.ERROR, { msg: err });
+      return;
+    }
+
+    case C.PARTY_STOP: {
+      if (conn.user.uid !== room.hostUid) return send(ws, S.ERROR, { msg: 'Párty mód ukončuje hostitel.' });
+      if (!room.parta) return;
+      return room.ukonciParty('Hostitel párty mód ukončil.');
+    }
 
     case C.START: {
       const err = room.requestStart(conn.user.uid);

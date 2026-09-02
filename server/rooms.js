@@ -2,14 +2,17 @@
 //  RoomManager – evidence místností, kódy, matchmaking, úklid.
 // ─────────────────────────────────────────────────────────────
 import { ROOM, STATUS, TIMING } from '../shared/constants.js';
-import { GAMES } from './games/index.js';
+import { GAMES, cistiVolby } from './games/index.js';
 import { Room } from './room.js';
 import { S, send } from './protocol.js';
 
 export class RoomManager {
   constructor() {
     this.rooms = new Map();      // code -> Room
-    this.lobbyWatchers = new Set(); // ws klientů, kteří koukají na seznam
+    this.lobbyWatchers = new Map(); // ws klientů, kteří koukají na seznam -> uid
+    // Doplní index.js. Bez přátel se chová, jako by nikdo nikoho neznal –
+    // seznam místností tak funguje i sám o sobě.
+    this.jePritel = () => false;
     this._pending = null;
     setInterval(() => this.sweep(), 10000);
   }
@@ -28,18 +31,7 @@ export class RoomManager {
   create(user, { gameId, visibility = 'public', maxPlayers, options }) {
     const game = GAMES[gameId];
     if (!game) return { error: 'Neznámá hra.' };
-    // Přijmi jen klíče, které hra sama nabízí – nic jiného se dovnitř
-    // nedostane. Zaškrtávátko je boolean, výběr musí být jedna
-    // z nabízených hodnot; cokoliv jiného spadne na výchozí.
-    const clean = {};
-    for (const o of game.options || []) {
-      const v = options?.[o.key];
-      if (o.typ === 'volba') {
-        clean[o.key] = o.volby?.some(x => x.v === v) ? v : o.def;
-      } else {
-        clean[o.key] = !!v;
-      }
-    }
+    const clean = cistiVolby(game, options);
     const room = new Room({
       code: this.newCode(), game, hostUid: user.uid,
       visibility, maxPlayers, options: clean, manager: this,
@@ -57,27 +49,38 @@ export class RoomManager {
     return null;
   }
 
-  publicList(gameId = null) {
+  //  Seznam je pro každého jiný: „jen pro přátele“ vidí jenom kamarád
+  //  někoho uvnitř. Bez uid (matchmaking) se počítá jen veřejné.
+  publicList(gameId = null, uid = null) {
     const out = [];
     for (const r of this.rooms.values()) {
-      if (r.visibility !== 'public') continue;
       if (gameId && r.game.id !== gameId) continue;
       if (r.status !== STATUS.LOBBY) continue;
       if (r.isFull) continue;
       if (!r.connectedHumans.length) continue;
+
+      const kamarad = !!uid && r.humans.some(p => p.uid !== uid && this.jePritel(uid, p.uid));
+      const jsemTam = !!uid && r.players.has(uid);
+      if (r.visibility === 'private') continue;
+      if (r.visibility === 'pratele' && !kamarad && !jsemTam) continue;
+
       out.push({
         code: r.code, gameId: r.game.id, gameTitle: r.game.title, emoji: r.game.emoji,
         hostName: r.players.get(r.hostUid)?.name || '?',
         count: r.activeCount, maxPlayers: r.maxPlayers,
         bots: r.list.filter(p => p.bot).length,
+        pratele: kamarad, jenPratele: r.visibility === 'pratele',
       });
     }
-    return out.sort((a, b) => b.count - a.count);
+    // Místnosti s kamarádem nahoru – kvůli tomu ten seznam vlastně je.
+    return out.sort((a, b) => (b.pratele - a.pratele) || (b.count - a.count));
   }
 
   // Najdi volnou veřejnou místnost, jinak založ vlastní.
   quickplay(user, ws, gameId) {
-    const open = this.publicList(gameId).filter(r => r.count < r.maxPlayers);
+    // S uid: seznam už má kamarádské místnosti nahoře, takže rychlá hra
+    // sama posílá k přátelům dřív než k cizim.
+    const open = this.publicList(gameId, user.uid).filter(r => r.count < r.maxPlayers);
     for (const info of open) {
       const room = this.get(info.code);
       if (room && !room.isFull && room.status === STATUS.LOBBY) {
@@ -92,20 +95,26 @@ export class RoomManager {
   }
 
   // ── Živý seznam místností pro lobby ──────────────────────
-  watchLobby(ws) { this.lobbyWatchers.add(ws); this.pushLobby(ws); this.roomsChanged(); }
+  watchLobby(ws, uid = null) { this.lobbyWatchers.set(ws, uid); this.pushLobby(ws); this.roomsChanged(); }
   unwatchLobby(ws) {
     if (this.lobbyWatchers.delete(ws)) this.roomsChanged();
   }
 
-  pushLobby(ws) { send(ws, S.ROOMS, { list: this.publicList(), stats: this.stats() }); }
+  pushLobby(ws) {
+    send(ws, S.ROOMS, { list: this.publicList(null, this.lobbyWatchers.get(ws)), stats: this.stats() });
+  }
 
   roomsChanged() {
     if (this._pending) return;                 // debounce – ať to nespamuje
     this._pending = setTimeout(() => {
       this._pending = null;
-      const list = this.publicList();
       const stats = this.stats();
-      for (const ws of this.lobbyWatchers) send(ws, S.ROOMS, { list, stats });
+      // Veřejná část je pro všechny stejná, tak se spočítá jednou; osobní
+      // seznam se dopočítává jen tomu, kdo vůbec nějaké přátele může mít.
+      const spolecny = this.publicList();
+      for (const [ws, uid] of this.lobbyWatchers) {
+        send(ws, S.ROOMS, { list: uid ? this.publicList(null, uid) : spolecny, stats });
+      }
     }, 150);
   }
 

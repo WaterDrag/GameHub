@@ -1,6 +1,12 @@
 // Sdílené konstanty – importuje je server (../shared/...) i prohlížeč (/shared/...).
 export const PROTO_VERSION = 1;
 
+// Testy si pár lhůt zkracují přes proměnné prostředí – s ostrými dvěma
+// minutami by jedna série minihier běžela čtvrt hodiny. V prohlížeči
+// `process` neexistuje, proto ta podmínka.
+const ENV = (typeof process !== 'undefined' && process.env) || {};
+const zEnv = (klic, vychozi) => Number(ENV[klic]) || vychozi;
+
 export const ROOM = {
   CODE_LEN: 5,
   CODE_ALPHABET: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', // bez I/O/0/1 kvůli přepisování z obrazovky
@@ -12,11 +18,11 @@ export const TIMING = {
   BOT_TAKEOVER_MS: 3000,    // po odpojení převezme postavu bot
   // Odpojený hráč nemůže hrát vůbec, takže ho bot bere hned. Tohle je
   // něco jiného: hráč je připojený, ale dvě minuty nic nedělá.
-  IDLE_TAKEOVER_MS: 120000,
+  IDLE_TAKEOVER_MS: zEnv('GH_IDLE_MS', 120000),
   // Po dvou minutách se nečinný hráč NENAHRAZUJE rovnou – nejdřív se
   // ostatních zeptáme. Kdo neodpoví do téhle lhůty, hlasování padá
   // a čeká se další dvě minuty.
-  BOT_VOTE_MS: 30000,
+  BOT_VOTE_MS: zEnv('GH_VOTE_MS', 30000),
   REJOIN_GRACE_MS: 180000,  // 3 min na návrat do rozehrané hry
   LOBBY_DROP_MS: 20000,     // odpojení v lobby = vyhození po 20 s
   EMPTY_ROOM_MS: 60000,     // místnost bez živého člověka

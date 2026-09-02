@@ -2234,3 +2234,128 @@ input:disabled,select:disabled{opacity:.4; cursor:not-allowed}
   .lo-strely,.lo-lodicky{flex-direction:row; flex-wrap:wrap}
   .lo-btn{width:auto; flex:1}
 }
+
+
+/* Malé tlačítko – používá ho panel party a hrdinská karta. */
+.btn.small{padding:5px 9px; font-size:.7rem; min-height:0}
+
+/* ── Párty mód ────────────────────────────────────────────────
+   Série minihier v jedné místnosti. Tabulka musí být čitelná i přes
+   běžící hru, proto štítek plave nad plátnem. */
+.parta-stav{
+  display:flex; flex-direction:column; gap:7px; align-items:center;
+  padding:11px 13px; border-radius:12px;
+  background:color-mix(in srgb,var(--acc) 12%,var(--surface2));
+  border:1px solid color-mix(in srgb,var(--acc) 35%,var(--brd));
+  font-size:.83rem;
+}
+.ps-tabulka{display:flex; flex-wrap:wrap; gap:6px; justify-content:center}
+.ps-hrac{
+  font-size:.73rem; padding:3px 9px; border-radius:99px;
+  background:var(--bg2); border:1px solid var(--brd);
+}
+
+.parta-chip{
+  position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:60;
+  display:flex; align-items:center; gap:10px; padding:6px 13px; border-radius:99px;
+  background:color-mix(in srgb,var(--bg2) 92%,transparent);
+  border:1px solid var(--brd2); box-shadow:0 8px 24px rgba(0,0,0,.45);
+  font-size:.74rem; pointer-events:none; max-width:92vw; overflow:hidden;
+}
+.parta-chip.hidden{display:none}
+.pc-kolo{font-weight:700; color:var(--acc2); white-space:nowrap}
+.pc-hrac{display:inline-flex; align-items:center; gap:5px; white-space:nowrap; color:var(--tx2)}
+.pc-tecka{width:8px; height:8px; border-radius:50%}
+
+.over-parta{margin:14px 0 4px; text-align:left}
+.over-parta.hidden{display:none}
+.op-hlava{font-weight:700; font-size:.86rem; margin-bottom:8px; text-align:center; color:var(--tx2)}
+.op-radek{
+  display:flex; align-items:center; gap:9px; padding:6px 10px; margin-bottom:4px;
+  border-radius:9px; background:var(--surface2); border:1px solid var(--brd);
+}
+.op-radek.ja{border-color:color-mix(in srgb,var(--acc) 50%,var(--brd))}
+.op-poradi{width:20px; color:var(--tx3); font-size:.8rem}
+.op-tecka{width:9px; height:9px; border-radius:50%}
+.op-jmeno{flex:1; font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.op-body{font-family:var(--font-display); font-size:1rem; color:var(--acc2)}
+.op-dalsi{margin-top:10px; text-align:center; font-size:.8rem; color:var(--tx3)}
+
+@media (max-width:700px){
+  .parta-chip{font-size:.68rem; gap:7px; padding:5px 10px}
+}
+
+/* ── Přátelé ──────────────────────────────────── */
+.pr-muj{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  padding:10px 12px; margin-bottom:10px; border-radius:10px;
+  background:var(--surface2); border:1px solid var(--brd);
+}
+.pr-muj small{color:var(--tx3); flex-basis:100%; font-size:.72rem}
+.pr-kod{
+  font-family:var(--font-display); font-size:1.05rem; letter-spacing:.18em;
+  color:var(--acc2); cursor:pointer;
+}
+.pr-kod:hover{filter:brightness(1.25)}
+.pr-list{display:flex; flex-direction:column; gap:5px; margin:6px 0 12px; max-height:230px; overflow-y:auto}
+.pr-radek{
+  display:flex; align-items:center; gap:8px; padding:7px 9px;
+  border-radius:9px; background:var(--surface2); border:1px solid var(--brd);
+}
+.pr-radek.pryc{opacity:.5}
+.pr-tecka{width:9px; height:9px; border-radius:50%; flex-shrink:0}
+.pr-jmeno{flex:1; font-weight:600; font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pr-kde{font-size:.72rem; color:var(--tx3); white-space:nowrap}
+
+/* Místnost, kde sedí kamarád – kvůli tomu je seznam seřazený tak, jak je. */
+.room-row.kamarad{border-color:color-mix(in srgb,var(--ok) 45%,var(--brd))}
+.room-znak{
+  margin-left:7px; font-size:.66rem; font-weight:600; padding:2px 7px; border-radius:99px;
+  background:color-mix(in srgb,var(--ok) 18%,transparent); color:var(--ok);
+  border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);
+}
+#prateleBadge{
+  background:var(--bad); color:#fff; border-color:transparent;
+  padding:1px 6px; font-size:.63rem;
+}
+
+/* ── Parta ───────────────────────────────────────
+   Plave v rohu, protože parta přežije hru – musí být vidět v hubu,
+   v čekárně i během hry. */
+.party-box{
+  position:fixed; left:14px; bottom:14px; z-index:900; width:210px;
+  background:color-mix(in srgb,var(--bg2) 96%,transparent);
+  border:1px solid var(--brd); border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  font-size:.76rem; overflow:hidden;
+}
+.party-box.hidden{display:none}
+.party-hlava{
+  display:flex; align-items:center; gap:6px; padding:7px 9px;
+  border-bottom:1px solid var(--brd); background:var(--surface);
+}
+.party-hlava b{font-size:.72rem; letter-spacing:.04em}
+.party-kod{
+  margin-left:auto; font-family:var(--font-display); font-size:.8rem;
+  color:var(--acc2); letter-spacing:.12em; cursor:pointer;
+}
+.party-x{
+  background:none; border:none; color:var(--tx3); cursor:pointer;
+  font-size:.8rem; line-height:1; padding:2px 4px; border-radius:5px;
+}
+.party-x:hover{color:var(--bad); background:var(--bg2)}
+#partyTelo.hidden{display:none}
+
+.party-clenove{display:flex; flex-direction:column; gap:3px; padding:7px 9px; max-height:180px; overflow-y:auto}
+.party-clen{display:flex; align-items:center; gap:6px}
+.party-clen.pryc{opacity:.4}
+.party-tecka{width:8px; height:8px; border-radius:50%; flex-shrink:0}
+.party-jmeno{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.72rem}
+
+.party-tlacitka{display:flex; flex-wrap:wrap; gap:4px; padding:0 9px 9px}
+.party-tlacitka .btn{flex:1; min-width:0}
+
+@media (max-width:700px){
+  .party-box{left:8px; right:8px; bottom:8px; width:auto}
+  .party-clenove{max-height:110px}
+}

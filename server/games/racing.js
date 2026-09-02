@@ -88,6 +88,11 @@ export default {
   optionsTitle: 'Jak se bude hrát',
   options: OPTIONS.map(o => ({ key: o.key, label: o.label, emoji: o.emoji, desc: o.desc, def: !!o.def })),
 
+  party: true,
+  partyOptions(hracu, rng) {
+    return Object.fromEntries(OPTIONS.map(o => [o.key, rng() < 0.5]));
+  },
+
   createState({ players, rng, options }) {
     const stavba = options?.stavba !== false;
     const state = {

@@ -20,6 +20,10 @@ const state = {
   filter: 'all',
   chatRoom: null,   // kód místnosti, jejíž historii máme vykreslenou
   lastChat: null,
+  party: null,      // {kod, vudce, clenove[]} nebo null
+  cekaPozvanka: null,   // z odkazu: {typ:'m'|'p', kod}
+  pratele: null,    // {kod, pratele[], zadosti[]}
+  parta: null,      // párty mód: {kolo, kola, tabulka[]} – jiná věc než `party` výše
 };
 
 // ── Přepínání obrazovek ──────────────────────────────────────
@@ -104,7 +108,33 @@ net.on('welcome', (m) => {
   state.games = m.games;
   renderGames();
   if (!state.room) { show('hub'); net.send('list'); }
+  vyriditPozvanku();
 });
+
+// ── Pozvánka z odkazu ──────────────────────────────
+//  `?m=KOD` do čekárny, `?p=KOD` do party. Adresa se hned uklidí,
+//  jinak by refresh po odchodu člověka natáhl zpátky.
+function nactiPozvanku() {
+  const q = new URLSearchParams(location.search);
+  const m = q.get('m'), pp = q.get('p');
+  if (m) state.cekaPozvanka = { typ: 'm', kod: m.toUpperCase().trim() };
+  else if (pp) state.cekaPozvanka = { typ: 'p', kod: pp.toUpperCase().trim() };
+  if (state.cekaPozvanka) history.replaceState(null, '', location.pathname);
+}
+
+function vyriditPozvanku() {
+  const z = state.cekaPozvanka;
+  if (!z) return;
+  state.cekaPozvanka = null;
+  if (z.typ === 'p') {
+    net.send('partyJoin', { kod: z.kod });
+    toast('Připojuji do party…', 'info');
+  } else {
+    net.send('join', { code: z.kod });
+    toast('Připojuji do čekárny…', 'info');
+  }
+}
+nactiPozvanku();
 
 net.on('rooms', (m) => {
   state.rooms = m.list;
@@ -115,10 +145,33 @@ net.on('rooms', (m) => {
   renderRooms();
 });
 
+// Nové kolo párty módu – místnost si sama přepnula hru.
+net.on('partyKolo', (m) => {
+  state.parta = { kolo: m.kolo, kola: m.kola, tabulka: m.tabulka };
+  renderPartaChip();
+  $('#gameOver').classList.remove('open');
+  toast(`Kolo ${m.kolo}/${m.kola}: ${m.emoji} ${m.title}`, 'info', 4000);
+});
+
+net.on('friends', (m) => {
+  state.pratele = m;
+  renderPratele();
+  renderRooms();     // kamarádi v seznamu se poznají podle příznaku ze serveru
+});
+
+net.on('party', (m) => {
+  state.party = m.party;
+  renderParty();
+});
+
 net.on('room', (m) => {
   state.room = m.room;
   state.players = m.room.players;
-  if (m.room.status === 'lobby' || m.room.status === 'countdown') { show('room'); renderRoom(); }
+  // Mezi koly párty módu se do čekárny neskáče – hráč zůstane u výsledků
+  // předchozí minihry a rovnou mu naběhne odpočet na další.
+  const mezikoli = m.room.parta && m.room.status === 'countdown' && document.body.dataset.screen === 'game';
+  if (!mezikoli && (m.room.status === 'lobby' || m.room.status === 'countdown')) { show('room'); renderRoom(); }
+  else if (mezikoli) renderRoom();
   else renderRoom();
 });
 
@@ -216,13 +269,56 @@ net.on('over', (m) => {
   state.players = m.players;
   const r = m.result;
   const ov = $('#gameOver');
-  const iAmWinner = r.winners?.includes(state.me?.uid);
-  ov.querySelector('.over-title').textContent = r.draw ? 'Remíza' : (iAmWinner ? 'Vyhrál jsi! 🏆' : 'Prohrál jsi');
-  ov.querySelector('.over-title').className = `over-title ${r.draw ? '' : iAmWinner ? 'win' : 'lose'}`;
+  const p = m.parta;
+  // V párty módu rozhoduje celková tabulka, ne tohle kolo – po posledním
+  // kole se proto titulek přepne na celkové pořadí.
+  const jaVyhral = p?.hotovo ? p.vitezove.includes(state.me?.uid) : r.winners?.includes(state.me?.uid);
+  const remiza = p?.hotovo ? p.vitezove.length !== 1 : !!r.draw;
+  ov.querySelector('.over-title').textContent = remiza
+    ? (p?.hotovo ? 'Párty končí remízou' : 'Remíza')
+    : (jaVyhral ? 'Vyhrál jsi! 🏆' : 'Prohrál jsi');
+  ov.querySelector('.over-title').className = `over-title ${remiza ? '' : jaVyhral ? 'win' : 'lose'}`;
   ov.querySelector('.over-reason').textContent = r.reason || '';
-  $('#btnRematch').classList.toggle('hidden', state.room?.hostUid !== state.me?.uid);
+
+  const pb = $('#overParta');
+  pb.innerHTML = '';
+  pb.classList.toggle('hidden', !p);
+  if (p) {
+    state.parta = { kolo: p.kolo, kola: p.kola, tabulka: p.tabulka };
+    renderPartaChip();
+    pb.append(el('div', { class: 'op-hlava', text: p.hotovo ? '🏁 Konečné pořadí' : `Po ${p.kolo}. kole z ${p.kola}` }));
+    for (const [i, x] of p.tabulka.entries()) {
+      pb.append(el('div', { class: `op-radek${x.uid === state.me?.uid ? ' ja' : ''}` },
+        el('span', { class: 'op-poradi', text: `${i + 1}.` }),
+        el('span', { class: 'op-tecka', style: `background:${uidColor(x.uid)}` }),
+        el('span', { class: 'op-jmeno', text: x.name }),
+        el('b', { class: 'op-body', text: `${x.bodu}` }),
+      ));
+    }
+    if (!p.hotovo && p.dalsi) {
+      pb.append(el('div', { class: 'op-dalsi' },
+        `Další kolo: ${p.dalsi.emoji} ${p.dalsi.title} — začíná za `,
+        el('b', { id: 'opOdpocet', text: `${Math.round(p.pauza / 1000)} s` }),
+      ));
+      odpocitej(Math.round(p.pauza / 1000));
+    }
+  }
+
+  // Odveta se v párty módu neřeší – pokračuje se samo.
+  $('#btnRematch').classList.toggle('hidden', !!p || state.room?.hostUid !== state.me?.uid);
   ov.classList.add('open');
 });
+
+let odpocetTimer = null;
+function odpocitej(n) {
+  clearInterval(odpocetTimer);
+  odpocetTimer = setInterval(() => {
+    n--;
+    const b = $('#opOdpocet');
+    if (!b || n <= 0) { clearInterval(odpocetTimer); return; }
+    b.textContent = `${n} s`;
+  }, 1000);
+}
 
 net.on('chat', (m) => pushChat(m));
 
@@ -242,7 +338,8 @@ net.on('left', ({ reason }) => {
   net.send('list');
 });
 
-net.on('error', (m) => toast(m.msg, 'error'));
+// Server posílá i potvrzení („žádost odešla“) stejnou cestou – liší se `ok`.
+net.on('error', (m) => toast(m.msg, m.ok ? 'success' : 'error'));
 
 // ── Herní view ───────────────────────────────────────────────
 async function mountGame(m) {
@@ -499,6 +596,121 @@ function pickedOptions() {
   return out;
 }
 
+// ── Parta ───────────────────────────────────────
+//  Parta je skupina lidí, ne jedna hra – drží pohromadě i po dohrání.
+//  Vůdce založí místnost a jedním tlačítkem do ní natáhne všechny.
+function odkazNa(typ, kod) {
+  const u = new URL(location.href);
+  u.search = '';
+  u.hash = '';
+  u.searchParams.set(typ, kod);
+  return u.toString();
+}
+
+async function zkopiruj(text, hlaska) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(hlaska, 'success');
+  } catch {
+    // Bez schránky (nezabezpečený kontext) ať to aspoň jde přečíst.
+    toast(text, 'info');
+  }
+}
+
+function renderParty() {
+  const box = $('#partyBox');
+  const p = state.party;
+  box.classList.toggle('hidden', !p);
+  if (!p) return;
+
+  const jsemVudce = p.vudce === state.me?.uid;
+  $('#partyKod').textContent = p.kod;
+  $('#partyNatahni').classList.toggle('hidden', !jsemVudce || !state.room);
+
+  const box2 = $('#partyClenove');
+  box2.innerHTML = '';
+  for (const c of p.clenove) {
+    const radek = el('div', { class: `party-clen${c.online ? '' : ' pryc'}` },
+      el('span', { class: 'party-tecka', style: `background:${uidColor(c.uid)}` }),
+      el('span', { class: 'party-jmeno', text: c.name + (c.uid === p.vudce ? ' ★' : '') }),
+      (jsemVudce && c.uid !== p.vudce)
+        ? el('button', {
+          class: 'party-x', type: 'button', title: 'Vyhodit z party',
+          onclick: () => net.send('partyKick', { uid: c.uid }),
+        }, document.createTextNode('✕'))
+        : null,
+    );
+    box2.append(radek);
+  }
+}
+
+// ── Render: párty mód ────────────────────────────────────────
+//  Malý štítek u hry – jinak se v páté minihře zapomene, o co se hraje.
+function renderPartaChip() {
+  const chip = $('#partaChip');
+  const p = state.parta;
+  chip.classList.toggle('hidden', !p);
+  if (!p) return;
+  chip.innerHTML = '';
+  chip.append(el('span', { class: 'pc-kolo', text: `Kolo ${p.kolo}/${p.kola}` }));
+  for (const x of (p.tabulka || []).slice(0, 4)) {
+    chip.append(el('span', { class: 'pc-hrac' },
+      el('span', { class: 'pc-tecka', style: `background:${uidColor(x.uid)}` }),
+      el('span', { text: `${x.name} ${x.bodu}` }),
+    ));
+  }
+}
+
+// ── Render: přátelé ──────────────────────────────────────────
+function renderPratele() {
+  const p = state.pratele;
+  const badge = $('#prateleBadge');
+  badge.classList.toggle('hidden', !p?.zadosti?.length);
+  badge.textContent = p?.zadosti?.length || '';
+  if (!p) return;
+
+  $('#prMujKod').textContent = p.kod;
+
+  const zb = $('#prZadosti');
+  zb.innerHTML = '';
+  $('#prZadostiBox').classList.toggle('hidden', !p.zadosti.length);
+  for (const z of p.zadosti) {
+    zb.append(el('div', { class: 'pr-radek' },
+      el('span', { class: 'pr-tecka', style: `background:${uidColor(z.uid)}` }),
+      el('span', { class: 'pr-jmeno', text: z.name }),
+      el('button', { class: 'btn ok small', onclick: () => net.send('friendAccept', { uid: z.uid }) }, '✓'),
+      el('button', { class: 'btn ghost small', onclick: () => net.send('friendDecline', { uid: z.uid }) }, '✕'),
+    ));
+  }
+
+  const sb = $('#prSeznam');
+  sb.innerHTML = '';
+  if (!p.pratele.length) {
+    sb.append(el('div', { class: 'empty', text: 'Zatím nikoho. Vyměňte si kódy!' }));
+    return;
+  }
+  for (const k of p.pratele) {
+    // Do soukromé místnosti kamaráda skočit nejde – ta je jen na kód.
+    const lze = k.kde && !k.kde.soukroma && k.kde.status === 'lobby';
+    sb.append(el('div', { class: `pr-radek${k.online ? '' : ' pryc'}` },
+      el('span', { class: 'pr-tecka', style: `background:${uidColor(k.uid)}` }),
+      el('span', { class: 'pr-jmeno', text: k.name }),
+      el('span', {
+        class: 'pr-kde',
+        text: k.kde ? `${k.kde.emoji} ${k.kde.hra}` : (k.online ? 'v hubu' : 'offline'),
+      }),
+      lze ? el('button', {
+        class: 'btn ok small',
+        onclick: () => { closeModal('modalPratele'); net.send('join', { code: k.kde.code }); },
+      }, 'Přidat se') : null,
+      el('button', {
+        class: 'btn ghost small', title: 'Odebrat z přátel',
+        onclick: () => { if (confirm(`Odebrat ${k.name} z přátel?`)) net.send('friendRemove', { uid: k.uid }); },
+      }, '✕'),
+    ));
+  }
+}
+
 // ── Render: veřejné místnosti ────────────────────────────────
 function renderRooms() {
   const box = $('#roomList');
@@ -508,10 +720,11 @@ function renderRooms() {
     return;
   }
   for (const r of state.rooms) {
-    box.append(el('div', { class: 'room-row', onclick: () => net.send('join', { code: r.code }) },
+    box.append(el('div', { class: `room-row${r.pratele ? ' kamarad' : ''}`, onclick: () => net.send('join', { code: r.code }) },
       el('div', { class: 'room-emoji', text: r.emoji }),
       el('div', { class: 'room-info' },
-        el('div', { class: 'room-title', text: r.gameTitle }),
+        el('div', { class: 'room-title' }, r.gameTitle,
+          r.pratele ? el('span', { class: 'room-znak', text: r.jenPratele ? '🫂 jen přátelé' : '🫂 kamarád' }) : null),
         el('div', { class: 'room-meta', text: `${r.hostName} · kód ${r.code}${r.bots ? ` · ${r.bots} bot(i)` : ''}` }),
       ),
       el('div', { class: 'room-count', text: `${r.count}/${r.maxPlayers}` }),
@@ -526,7 +739,8 @@ function renderRoom() {
   const amHost = r.hostUid === state.me?.uid;
   $('#roomTitle').textContent = `${r.emoji} ${r.gameTitle}`;
   $('#roomCode').textContent = r.code;
-  $('#roomVis').textContent = r.visibility === 'public' ? '🌐 veřejná' : '🔒 soukromá';
+  $('#roomVis').textContent =
+    { public: '🌐 veřejná', pratele: '🫂 jen přátelé', private: '🔒 soukromá' }[r.visibility] || '🔒 soukromá';
   $('#roomCount').textContent = `${r.players.length}/${r.maxPlayers}`;
 
   // Nastavení se mění TADY, ne při zakládání místnosti. Teprve v čekárně
@@ -580,7 +794,24 @@ function renderRoom() {
 
   const full = r.players.length >= r.maxPlayers;
 
-  $('#btnStart').classList.toggle('hidden', !amHost);
+  // Párty mód: buď se dá spustit, nebo je vidět, jak jde.
+  state.parta = r.parta ? { ...r.parta } : null;
+  renderPartaChip();
+  const vParty = !!r.parta;
+  $('#partaModRow').classList.toggle('hidden', !amHost || vParty || r.players.length < 2);
+  const ps = $('#partaStav');
+  ps.classList.toggle('hidden', !vParty);
+  if (vParty) {
+    ps.innerHTML = '';
+    ps.append(el('b', { text: `🎉 Párty mód · kolo ${r.parta.kolo}/${r.parta.kola}` }));
+    ps.append(el('div', { class: 'ps-tabulka' },
+      ...r.parta.tabulka.map(x => el('span', { class: 'ps-hrac', text: `${x.name} ${x.bodu}` }))));
+    if (amHost) {
+      ps.append(el('button', { class: 'btn ghost small', onclick: () => net.send('partyStop') }, 'Ukončit párty mód'));
+    }
+  }
+
+  $('#btnStart').classList.toggle('hidden', !amHost || vParty);
   $('#btnStart').disabled = r.players.length < r.minPlayers;
   $('#btnStart').textContent = r.players.length < r.minPlayers
     ? `Potřeba ${r.minPlayers} hráči` : '🚀 Spustit hru';
@@ -736,6 +967,46 @@ function bind() {
     i.value = '';
   };
   $('#btnChat').onclick = sendChat;
+
+  // ── Parta ───────────────────────────────────
+  $('#btnParta').onclick = () => {
+    if (state.party) return toast('Už partu máš.', 'info');
+    net.send('partyNew');
+  };
+  $('#btnPartaMod').onclick = () => net.send('partyMod', { kola: Number($('#partaKola').value) });
+
+  $('#btnPratele').onclick = () => { net.send('friends'); openModal('modalPratele'); };
+  $('#prMujKod').onclick = () => {
+    if (state.pratele?.kod) zkopiruj(state.pratele.kod, 'Tvůj kód je ve schránce.');
+  };
+  const pridej = () => {
+    const kod = $('#prKodInput').value.trim().toUpperCase();
+    if (kod.length < 4) return toast('Zadej kód kamaráda.', 'warn');
+    net.send('friendAdd', { kod });
+    $('#prKodInput').value = '';
+  };
+  $('#btnPrPridat').onclick = pridej;
+  $('#prKodInput').onkeydown = (e) => { if (e.key === 'Enter') pridej(); };
+
+  $('#partyPryc').onclick = () => net.send('partyLeave');
+  $('#partyNatahni').onclick = () => net.send('partyPull');
+  const odkazParty = () => {
+    if (!state.party) return;
+    zkopiruj(odkazNa('p', state.party.kod), 'Odkaz na partu je ve schránce.');
+  };
+  $('#partyOdkaz').onclick = odkazParty;
+  $('#partyKod').onclick = odkazParty;
+  $('#partySbal').onclick = () => {
+    const t = $('#partyTelo');
+    const sbaleno = t.classList.toggle('hidden');
+    $('#partySbal').textContent = sbaleno ? '+' : '–';
+  };
+
+  // Pozvánka do čekárny – odkaz, ne opisování kódu.
+  $('#btnPozvanka').onclick = () => {
+    if (!state.room) return;
+    zkopiruj(odkazNa('m', state.room.code), 'Pozvánka do čekárny je ve schránce.');
+  };
   $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 }
 

@@ -139,6 +139,19 @@ export default {
   botLevels: ['easy', 'normal', 'hard'],
 
   optionsTitle: 'Nastavení hry',
+  // Párty mód: krátká partie – nejmenší možná deska, málo figurek
+  // a jeden náhodný mód, ať se každé kolo hraje trochu jinak.
+  party: true,
+  partyOptions(hracu, rng) {
+    const o = {
+      mapa: hracu > 4 ? 'velka' : 'mala',
+      // Naměřené odhady délky: čtyři figurky dělají z party módu večer.
+      figurek: hracu <= 2 ? 3 : 2,
+    };
+    for (const m of rng.shuffle(MODY.slice()).slice(0, 1)) o[m.id] = true;
+    return o;
+  },
+
   options: [
     {
       key: 'mapa',

@@ -27,6 +27,23 @@ export const C = {
   ACTION:     'action',     // {...}      – tahové hry
   REMATCH:    'rematch',    // {}
   VOTE_BOT:   'voteBot',    // {uid, ano} – hlasování o nahrazení botem
+
+  // Parta – skupina, která drží pohromadě napříč hrami
+  PARTY_NEW:   'partyNew',   // {}
+  PARTY_JOIN:  'partyJoin',  // {kod}
+  PARTY_LEAVE: 'partyLeave', // {}
+  PARTY_KICK:  'partyKick',  // {uid}   – jen vůdce
+  PARTY_PULL:  'partyPull',  // {}      – vůdce natáhne partu do své místnosti
+
+  // Přátelé – jediná trvalá věc, drží i mezi restarty serveru
+  FRIENDS:        'friends',       // {}      – dej mi seznam
+  FRIEND_ADD:     'friendAdd',     // {kod}
+  FRIEND_ACCEPT:  'friendAccept',  // {uid}
+  FRIEND_DECLINE: 'friendDecline', // {uid}
+  FRIEND_REMOVE:  'friendRemove',  // {uid}
+
+  PARTY_MOD:  'partyMod',   // {kola} – hostitel spustí sérii minihier
+  PARTY_STOP: 'partyStop',  // {}     – a může ji taky ukončit
 };
 
 // server -> klient
@@ -43,6 +60,9 @@ export const S = {
   OVER:      'over',       // {result}
   CHAT:      'chat',       // {from, msg, ts}
   ERROR:     'error',      // {msg}
+  PARTY:     'party',      // {kod, vudce, clenove[]} nebo null, když žádná
+  FRIENDS:   'friends',    // {kod, pratele[], zadosti[]}
+  PARTY_KOLO: 'partyKolo', // {kolo, kola, gameId, title, emoji, tabulka[]}
   RESUME:    'resume',     // {code} – server sám nabídne návrat do rozehrané hry
 };
 

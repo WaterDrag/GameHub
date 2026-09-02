@@ -4,6 +4,9 @@ node_modules/
 .DS_Store
 server/.secret
 
+# seznam přátel je uživatelská data, ne kód
+server/data/
+
 # lokální nastavení serveru – nikdy do gitu
 gamehub.env
 nasazeni/*.local

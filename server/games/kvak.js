@@ -82,6 +82,8 @@ export default {
   minPlayers: 2,
   maxPlayers: 4,
   realtime: false,
+  // Krátká partie bez nastavování – do party módu se hodí tak, jak je.
+  party: true,
   supportsBots: true,
   botLevels: ['easy', 'normal', 'hard'],
 

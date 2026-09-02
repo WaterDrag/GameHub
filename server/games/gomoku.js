@@ -78,6 +78,9 @@ export default {
   botLevels: ['easy', 'normal', 'hard'],
 
   optionsTitle: 'Režim',
+  party: true,
+  partyOptions(hracu, rng) { return { rezim: rng.pick(REZIMY).id }; },
+
   options: [
     {
       key: 'rezim',

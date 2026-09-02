@@ -56,6 +56,84 @@ server odmítl s `Obsazeno.` / `Mimo desku.` / `Nejsi na tahu.`
 | **Kvak!** – rybník z 64 skrytých kartiček, 2 až 4 hráči | ✅ |
 | **Lodě** – jedno společné moře pro 2 až 4 kapitány | ✅ |
 | Volby před hrou se mění i v čekárně a hra si je umí zamknout | ✅ |
+| **Parta** — drží pohromadě napříč hrami, vůdce ji natáhne do místnosti | ✅ |
+| **Pozvánky odkazem** — do čekárny (`?m=KÓD`) i do party (`?p=KÓD`) | ✅ |
+| **Přátelé** — kód, žádosti, online stav, místnosti „jen pro přátele“ | ✅ |
+| **Párty mód** — série minihier, body za výhru, celkový vítěz | ✅ |
+
+## Parta, přátelé a párty mód
+
+Tři věci, které vypadají podobně, ale každá řeší něco jiného.
+
+### Parta
+
+Místnost je jedna hra. **Parta je parta lidí** — vlastní entita
+(`server/party.js`), která hru přežije. Vůdce vybere hru, dá „Natáhnout do
+hry“ a všichni se do jeho místnosti přesunou naráz, i kdyby zrovna seděli
+jinde. Nikdo nikam neopisuje kód.
+
+- kód party je pětiznakový, stejná abeceda jako u místností (bez I/O/0/1)
+- vůdcovství po odchodu padá na dalšího v pořadí
+- kdo je offline, zůstane v partě a jen zešedne — parta se kvůli němu nezastaví
+- parta bez jediného online člena se po 10 minutách zahodí (`PRAZDNA_MS`);
+  kratší lhůta by rozbila návrat po refreshi
+
+Panel plave v rohu, protože musí být vidět v hubu, v čekárně i ve hře.
+
+### Pozvánky odkazem
+
+`https://…/?m=KÓD` vede do čekárny, `?p=KÓD` do party. Klient si adresu
+hned po přečtení uklidí přes `history.replaceState` — jinak by refresh po
+odchodu člověka natáhl zpátky.
+
+### Přátelé
+
+Jediná část hubu, která si něco pamatuje mezi restarty (`server/pratele.js`,
+soubor `server/data/pratele.json`, zápis přes `.tmp` + přejmenování). Drží to
+na stejném uid jako returner systém, takže i host bez registrace má přátele
+napořád.
+
+- každý má **šestiznakový kód**, který pošle kamarádovi
+- žádost → přijetí; když už žádost čeká z druhé strany, kliknutí ji rovnou spáruje
+- v seznamu je vidět online stav a **kde kamarád zrovna je** (dá se k němu skočit)
+- odebrání platí oboustranně
+
+Nová viditelnost místnosti **„jen přátelé“** (`visibility: 'pratele'`): v seznamu
+ji vidí jen kamarád někoho uvnitř, a je připnutá nahoru. Není to zámek —
+na přímý kód se tam dostane kdokoliv, stejně jako u soukromé místnosti.
+Seznam místností se proto počítá pro každého diváka zvlášť.
+
+### Párty mód
+
+Mario Party v hubu: vybereš **počet kol** (3/5/7) a dál se nenastavuje nic.
+Místnost si sama losuje minihry, sama je nastaví podle počtu hráčů, sama
+je spouští. Za vyhrané kolo je bod, po posledním kole vyhrává, kdo jich má
+nejvíc.
+
+Hub o žádné konkrétní volbě neví — stejně jako u obyčejné čekárny si to
+říká hra sama:
+
+```js
+party: true,
+partyOptions(hracu, rng) {
+  return { mapa: hracu > 4 ? 'velka' : 'mala', figurek: hracu <= 2 ? 3 : 2, … };
+},
+```
+
+Vylosované volby projdou **stejnou kontrolou** (`cistiVolby`) jako volby od
+hostitele — hub nevěří ničemu, co do options přijde, ani sám sobě.
+
+V nabídce jsou jen krátké hry: aréna, závody, člověče, lodě, kvak,
+piškvorky (ty jen ve dvou). Katan, UNO ani šachy tam nejsou — jedna partie
+Katanu je delší než celý párty mód. Los nejdřív protočí celou nabídku a až
+pak se opakuje; na hraně dvou průchodů se hlídá, aby stejná hra nevyšla
+dvakrát po sobě (naměřeno 0 z 1200 přechodů).
+
+Člověče se v párty módu nastaví na nejmenší možnou desku, dvě až tři
+figurky a **jeden náhodný mód** — každé kolo se tak hraje trochu jinak.
+
+Ověřeno testem, který odehraje celou sérii proti běžícímu serveru
+(`tools/test-party-mod.mjs`) — tři kola s boty trvají zhruba deset minut.
 
 ## Netcode arény
 
@@ -1266,6 +1344,12 @@ restartu ztratí všichni hosté identitu.
 GH_SECRET=$(openssl rand -hex 32)
 ```
 
+### Kde se berou přátelé
+
+Seznam přátel leží v `server/data/pratele.json` (taky v `.gitignore`). Jinou
+cestu si vynutíš přes `GH_PRATELE` — testy toho využívají, aby ti nezaplevelily
+ostrá data.
+
 ## Vzhled a motivy
 
 Šest motivů: **Půlnoc** (výchozí), **Neon**, **Sakura**, **Terminál**,
@@ -1388,7 +1472,11 @@ server/
   index.js        HTTP + WebSocket, routing zpráv, rate limit
   auth.js         ověření Firebase ID tokenu proti Google JWKS
   rooms.js        RoomManager – kódy, matchmaking, úklid
-  room.js         Room – tick smyčka, returner systém, převzetí botem
+  room.js         Room – tick smyčka, returner systém, převzetí botem,
+                  párty mód (losuje a řetězí minihry)
+  party.js        Parta – skupina lidí napříč hrami
+  party-mod.js    los minihier a bodová tabulka párty módu
+  pratele.js      přátelé – jediná trvalá data, ukládají se na disk
   protocol.js     typy zpráv
   games/          pravidla + boti (běží NA SERVERU)
 shared/           konstanty a RNG – importuje server i prohlížeč

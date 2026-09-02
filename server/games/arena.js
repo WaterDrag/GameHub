@@ -123,6 +123,11 @@ export default {
   // vykreslí zaškrtávátka sám, server přijme jen tyhle klíče.
   options: EVENTS.map(e => ({ key: e.key, label: e.name, emoji: e.emoji, desc: e.desc, def: false })),
 
+  // Do party módu jde aréna s jednou náhodnou událostí – dvě najednou
+  // už jsou spíš chaos než minihra.
+  party: true,
+  partyOptions(hracu, rng) { return { [rng.pick(EVENTS).key]: true }; },
+
   createState({ players, rng, options }) {
     const now = Date.now();
     const on = {};
