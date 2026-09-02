@@ -100,6 +100,18 @@ ok(b.room?.code === mkod, 'druhého to natáhlo do místnosti vůdce');
 ok(c.room?.code === mkod, 'třetího taky');
 ok(a.room.players.length === 3, `v místnosti jsou 3 hráči (${a.room?.players.length})`);
 
+// 3b. Nová místnost vůdce si partu vezme sama, bez pobídky
+b.posli('leave'); c.posli('leave');
+await spi(250);
+a.posli('leave'); await spi(200);
+a.zpravy.length = 0;
+a.posli('create', { gameId: 'clovece', visibility: 'private', maxPlayers: 4 });
+await a.cekej(m => m.t === 'room');
+await spi(450);
+ok(b.room?.code === a.room.code && c.room?.code === a.room.code,
+   'založení místnosti vůdcem natáhlo partu samo');
+const mkod2 = a.room.code;
+
 // 4. Natáhne i toho, kdo sedí jinde
 b.posli('leave');
 await spi(200);
@@ -110,7 +122,7 @@ const jinyKod = b.room.code;
 ok(jinyKod !== mkod, 'druhý si mezitím udělal vlastní místnost');
 a.posli('partyPull');
 await spi(400);
-ok(b.room?.code === mkod, 'pull ho přetáhl zpátky z cizí místnosti');
+ok(b.room?.code === mkod2, 'pull ho přetáhl zpátky z cizí místnosti');
 
 // 5. Pull smí jen vůdce
 b.zpravy.length = 0;

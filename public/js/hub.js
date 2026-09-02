@@ -161,6 +161,7 @@ net.on('friends', (m) => {
 
 net.on('party', (m) => {
   state.party = m.party;
+  if (!m.party) $('#btnParta').textContent = '👥 Založit partu';
   renderParty();
 });
 
@@ -625,7 +626,11 @@ function renderParty() {
 
   const jsemVudce = p.vudce === state.me?.uid;
   $('#partyKod').textContent = p.kod;
+  $('#btnParta').textContent = '👥 Parta';
+  // Když vůdce založí místnost, parta se do ní natáhne sama; tlačítko je
+  // pro případ, že se někdo připojil až potom nebo mezitím odešel jinam.
   $('#partyNatahni').classList.toggle('hidden', !jsemVudce || !state.room);
+  $('#partyNatahni').textContent = p.clenove.length > 1 ? '⬇ Natáhnout do hry' : '⬇ Natáhnout';
 
   const box2 = $('#partyClenove');
   box2.innerHTML = '';

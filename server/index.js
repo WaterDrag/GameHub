@@ -256,6 +256,16 @@ async function handle(conn, msg) {
       conn.room = room; conn.player = p;
       manager.unwatchLobby(ws);
       for (let i = 0; i < (msg.bots | 0); i++) room.addBot(msg.botLevel);
+
+      // Vůdce party zakládá místnost pro partu – nikdo nemá opisovat kód.
+      // Jen u zakládání: do cizí místnosti by se parta nemusela vejít.
+      const mojeP = party.proHrace(conn.user.uid);
+      if (mojeP && mojeP.vudce === conn.user.uid && mojeP.pocet > 1) {
+        const { nevzato } = party.natahni(mojeP, room.code);
+        party.rozesli(mojeP);
+        room.broadcastRoom();
+        if (nevzato.length) send(ws, S.ERROR, { msg: `Nevzal jsem: ${nevzato.join(', ')} (offline nebo plno).` });
+      }
       return;
     }
 
